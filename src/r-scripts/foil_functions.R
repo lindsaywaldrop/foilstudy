@@ -50,12 +50,14 @@ find_midline <- function(x, y, smoothed = TRUE, plot = TRUE){
       y[(npts + 1) - i]
   }
   for(i in 1:(npts/2)){
-    thickness_top_x[i] <- (foil_midline_x[i] - x[i])
-    thickness_top_y[i] <- (foil_midline_y[i] - y[i])
-    thickness_bot_x[i] <- (foil_midline_x[i] - 
-                             x[(npts + 1) - i])
-    thickness_bot_y[i] <- (foil_midline_y[i] - 
-                             y[(npts + 1) - i])
+    thickness_top_x[i] <- x[i] - foil_midline_x[i]
+    thickness_top_y[i] <- y[i] - foil_midline_y[i]
+    #print(i)
+    thickness_bot_x[i] <- foil_midline_x[i] - 
+                            x[(npts + 1) - i]
+    thickness_bot_y[i] <- foil_midline_y[i] - 
+                            y[(npts + 1) - i]
+    #print((npts + 1) - i)
   } 
   if(smoothed) {
     loess_sm <- loess(foil_midline_y ~ foil_midline_x, span = 0.5, parametric = "span")
@@ -63,17 +65,22 @@ find_midline <- function(x, y, smoothed = TRUE, plot = TRUE){
   }
   
   if(plot){
-    plot(x, y, type = "o", asp = 1, col = viridis::viridis(npts))
+    plot(x, y, type = "o", col = viridis::viridis(npts), asp = 1)
+     #xlim = c(0.9, 1), ylim = c(0, 0.03))
+    lines(x, y)
     lines(c(-10, 10), c(0, 0), lty = 2)
-    points(foil_midline_x, foil_midline_y, col = viridis::viridis(npts/2, option = "A"))
+    points(foil_midline_x, foil_midline_y, col = viridis::viridis(npts/2, option = "A"), 
+           pch = 19)
     for(i in 1:(npts/2)) {
       lines(x = c(x[i], x[(npts + 1) - i]), 
             y = c(y[i], y[(npts + 1) - i]))
       lines(x = c(foil_midline_x[i], foil_midline_x[i] + thickness_top_x[i]), 
             y = c(foil_midline_y[i], foil_midline_y[i] + thickness_top_y[i]), 
             col = "red")
-      lines(x = c(foil_midline_x[i], foil_midline_x[i] + thickness_bot_x[i]), 
-            y = c(foil_midline_y[i], foil_midline_y[i] + thickness_bot_y[i]), 
+    }
+    for(i in (npts/2):1){
+      lines(x = c(foil_midline_x[i], foil_midline_x[i] - thickness_top_x[i]), 
+            y = c(foil_midline_y[i], foil_midline_y[i] - thickness_top_y[i]), 
             col = "blue")
     }
   }
@@ -89,6 +96,7 @@ adjust_midline <- function(foil_midline, camber_new, plot = FALSE){
   new_midline <- foil_midline
   new_midline$y <- ((foil_midline$y - min(foil_midline$y)) * camber_new ) /
     (max(foil_midline$y) - min(foil_midline$y))
+  if(min(new_midline$y) < 0) new_midline$y <- new_midline$y + abs(min(new_midline$y))
   if(plot){
     require(viridis)
     plot(foil_midline$x, foil_midline$y, asp = 1, col = viridis(80))
@@ -101,19 +109,25 @@ adjust_midline <- function(foil_midline, camber_new, plot = FALSE){
 create_new_foil <- function(new_midline, plot = FALSE){
   npts <- nrow(new_midline)*2
   new_foil <- data.frame("x" = rep(NA, npts), "y" = rep(NA, npts))
-  new_foil$x[1:(npts/2)] <- new_midline$x - new_midline$thickness_top_x
-  new_foil$y[1:(npts/2)] <- new_midline$y - new_midline$thickness_top_y
-  new_foil$x[npts:(npts/2 + 1)] <- new_midline$x - new_midline$thickness_bot_x
-  new_foil$y[npts:(npts/2 + 1)] <- new_midline$y - new_midline$thickness_bot_y
+  new_foil$x[1:(npts/2)] <- new_midline$x + new_midline$thickness_top_x
+  new_foil$y[1:(npts/2)] <- new_midline$y + new_midline$thickness_top_y
+  new_foil$x[npts:(npts/2 + 1)] <- bit::reverse_vector(new_midline$x) - 
+                                    bit::reverse_vector(new_midline$thickness_top_x)
+  new_foil$y[npts:(npts/2 + 1)] <- bit::reverse_vector(new_midline$y) - 
+                                    bit::reverse_vector(new_midline$thickness_top_y)
   if(plot){
     require(viridis)
-    plot(new_foil$x, new_foil$y, asp = 1)
-    points(new_midline$x, new_midline$y, col = viridis(80))
+    plot(new_foil$x, new_foil$y, asp = 1)#, 
+         #xlim = c(0.9, 1), ylim = c(0, 0.03))
+    lines(new_foil$x, new_foil$y, col = "black")
+    points(new_midline$x, new_midline$y, col = viridis(80), pch = 19)
     lines(c(0,1), c(0,0), lty = 2)
     for(i in 1:80){
-      lines(x = c(new_midline$x[i], new_midline$x[i] - new_midline$thickness_top_x[i]), 
-            y = c(new_midline$y[i], new_midline$y[i] - new_midline$thickness_top_y[i]), 
+      lines(x = c(new_midline$x[i], new_midline$x[i] + new_midline$thickness_top_x[i]), 
+            y = c(new_midline$y[i], new_midline$y[i] + new_midline$thickness_top_y[i]), 
             col = "red")
+    }
+    for(i in 80:1){
       lines(x = c(new_midline$x[i], 
                   new_midline$x[i] - new_midline$thickness_bot_x[i]), 
             y = c(new_midline$y[i], 

@@ -17,7 +17,7 @@ source("./src/r-scripts/foil_functions.R")
 Define new camber: 
 
 ```{r}
-camber_new <- 0.10
+camber_new <- 0.15
 ```
 
 Load baseline airfoil: 
@@ -33,7 +33,7 @@ for(i in 1:80) lines(x = c(foil$x[i], foil$x[(npts + 1) - i]),
 
 Calculate midline: 
 ```{r}
-foil_midline_sm <- find_midline(foil$x, foil$y)
+foil_midline_sm <- find_midline(foil$x, foil$y, smoothed = F)
 ```
 Calculate original camber: 
 
