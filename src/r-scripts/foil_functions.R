@@ -105,16 +105,31 @@ adjust_midline <- function(foil_midline, camber_new, plot = FALSE){
   return(new_midline)
 }
 
+calc_midline_angles <- function(new_midline){
+  angles <- rep(NA, nrow(new_midline))
+  for(i in 2:(nrow(new_midline))){
+    angles[i] <- calc_angle(p1 = c(new_midline$x[i], new_midline$y[i]), 
+                            p2 = c(new_midline$x[i-1], new_midline$y[i-1]), 
+                            p3 = c(new_midline$x[i], new_midline$y[i-1]))
+  }
+  angles[1] <- angles[2]
+  return(angles)
+}
 
 create_new_foil <- function(new_midline, plot = FALSE){
   npts <- nrow(new_midline)*2
+  half_thickness <- sqrt((new_midline$thickness_top_x)^2 + (new_midline$thickness_top_y)^2)
+  top_angles <- calc_midline_angles(new_midline) - 0.5*pi
+  bot_angles <- calc_midline_angles(new_midline) + 0.5*pi
   new_foil <- data.frame("x" = rep(NA, npts), "y" = rep(NA, npts))
-  new_foil$x[1:(npts/2)] <- new_midline$x + new_midline$thickness_top_x
-  new_foil$y[1:(npts/2)] <- new_midline$y + new_midline$thickness_top_y
-  new_foil$x[npts:(npts/2 + 1)] <- bit::reverse_vector(new_midline$x) - 
-                                    bit::reverse_vector(new_midline$thickness_top_x)
-  new_foil$y[npts:(npts/2 + 1)] <- bit::reverse_vector(new_midline$y) - 
-                                    bit::reverse_vector(new_midline$thickness_top_y)
+  new_foil$x[1:(npts/2)] <- new_midline$x - half_thickness*cos(top_angles)
+  new_foil$y[1:(npts/2)] <- new_midline$y - half_thickness*sin(top_angles)
+  new_foil$x[npts:(npts/2 + 1)] <- new_midline$x - half_thickness*cos(bot_angles)
+  new_foil$y[npts:(npts/2 + 1)] <- new_midline$y - half_thickness*sin(bot_angles)
+  new_foil$x[1] <- 1
+  new_foil$y[1] <- 0
+  new_foil$x[npts] <- new_foil$x[1] - 5e-4
+  new_foil$y[npts] <- 0
   if(plot){
     require(viridis)
     plot(new_foil$x, new_foil$y, asp = 1)#, 
@@ -123,15 +138,15 @@ create_new_foil <- function(new_midline, plot = FALSE){
     points(new_midline$x, new_midline$y, col = viridis(80), pch = 19)
     lines(c(0,1), c(0,0), lty = 2)
     for(i in 1:80){
-      lines(x = c(new_midline$x[i], new_midline$x[i] + new_midline$thickness_top_x[i]), 
-            y = c(new_midline$y[i], new_midline$y[i] + new_midline$thickness_top_y[i]), 
+      lines(x = c(new_midline$x[i], new_midline$x[i] - half_thickness[i]*cos(top_angles[i])), 
+            y = c(new_midline$y[i], new_midline$y[i] - half_thickness[i]*sin(top_angles[i])), 
             col = "red")
     }
     for(i in 80:1){
       lines(x = c(new_midline$x[i], 
-                  new_midline$x[i] - new_midline$thickness_bot_x[i]), 
+                  new_midline$x[i] - half_thickness[i]*cos(bot_angles[i])), 
             y = c(new_midline$y[i], 
-                  new_midline$y[i] - new_midline$thickness_bot_y[i]), 
+                  new_midline$y[i] - half_thickness[i]*sin(bot_angles[i])), 
             col = "blue")
     }
   }
