@@ -23,7 +23,7 @@ camber_new <- 0.05
 Load baseline airfoil: 
 
 ```{r}
-foil <- read.table("./data/AS6091.dat", skip = 0)
+foil <- read.table("./data/airfoils/AS6091.dat", skip = 0)
 colnames(foil) <- c("x", "y")
 npts <- nrow(foil)
 plot(y~x, data = foil, type = "o", asp = 1, col = viridis::viridis(npts))
@@ -64,7 +64,7 @@ calc_camber(new_midline$x, new_midline$y, camber_new)
 Write new foil to a file:
 
 ```{r}
-write.table(new_foil, file = "./data/ASnew.dat", row.names = F, col.names = F)
+write.table(new_foil, file = "./data/airfoils/ASnew.dat", row.names = F, col.names = F)
 ```
 
 
