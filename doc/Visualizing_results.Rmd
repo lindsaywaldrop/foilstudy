@@ -1,0 +1,78 @@
+---
+title: "Visualizing Results Notebook"
+output: html_notebook
+---
+```{r setup}
+library(ggplot2)
+library(patchwork)
+```
+
+# Foil Study -- Visualizing Results
+
+## gPC study 
+
+```{r}
+column_names <- c("Re", "aoa", "camber")
+params_gpc_nolog <- read.csv("./data/parameters/gPC_Params_noLogRe.csv", 
+                             header = FALSE)
+colnames(params_gpc_nolog) <- column_names
+params_gpc_nolog$camber <- factor(params_gpc_nolog$camber)
+params_gpc_log <- read.csv("./data/parameters/gPC_Params_LogRe.csv",
+                           header = FALSE)
+colnames(params_gpc_log) <- column_names
+params_gpc_log$camber <- factor(params_gpc_log$camber)
+```
+
+
+Plotting parameters for GPC (Re log)
+```{r}
+p1_gpc_log <- ggplot(params_gpc_log, aes(Re, camber)) + geom_point() + 
+  theme_minimal()
+p2_gpc_log <- ggplot(params_gpc_log, aes(Re, aoa)) + geom_point() +
+  theme_minimal()
+
+p1_gpc_log + p2_gpc_log
+```
+
+Plotting parameters for GPC (Re no log)
+```{r}
+p1_gpc_nolog <- ggplot(params_gpc_nolog, aes(Re, camber)) + geom_point() +
+  theme_minimal()
+p2_gpc_nolog <- ggplot(params_gpc_nolog, aes(Re, aoa)) + geom_point() +
+  theme_minimal()
+
+p1_gpc_nolog + p2_gpc_nolog
+```
+
+
+## NN study
+
+```{r}
+params_nn_log <- read.csv("./data/parameters/NN_Params_LogRe.csv", 
+                          header = FALSE)
+colnames(params_nn_log) <- column_names
+params_nn_nolog <- read.csv("./data/parameters/NN_Params_noLogRe.csv", 
+                          header = FALSE)
+colnames(params_nn_nolog) <- column_names
+
+```
+
+Plotting parameters for NN (Re log)
+```{r}
+p1_nn_log <- ggplot(params_nn_log, aes(Re, camber)) + geom_point() +
+  theme_minimal()
+p2_nn_log <- ggplot(params_nn_log, aes(Re, aoa)) + geom_point() +
+  theme_minimal()
+
+p1_nn_log + p2_nn_log
+```
+
+Plotting parameters for NN (Re no log)
+```{r}
+p1_nn_nolog <- ggplot(params_nn_nolog, aes(Re, camber)) + geom_point() +
+  theme_minimal()
+p2_nn_nolog <- ggplot(params_nn_nolog, aes(Re, aoa)) + geom_point() +
+  theme_minimal()
+
+p1_nn_nolog + p2_nn_nolog
+```
