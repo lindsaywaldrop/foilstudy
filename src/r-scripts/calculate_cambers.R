@@ -4,6 +4,8 @@
 
 source("./src/r-scripts/foil_functions.R")
 
+dir.create("./results", showWarnings = F)
+
 # Load template foil
 foil <- read.table("./data/airfoils/AS6091.dat", skip = 0)
 colnames(foil) <- c("x", "y")
@@ -11,7 +13,9 @@ npts <- nrow(foil)
 
 #### GPC parameter set ####
 
-dir.create("./data/airfoils/gpc_camber_files", showWarnings = FALSE)
+dir.create("./data/airfoils/gPC_camber_files", showWarnings = FALSE)
+dir.create("./results/gPC_noLogRe_matfiles/", showWarnings = FALSE)
+dir.create("./results/gPC_LogRe_matfiles/", showWarnings = FALSE)
 
 # Load parameters and extract cambers
 gpc_params <- read.csv("./data/parameters/gPC_Params_noLogRe.csv",
@@ -24,13 +28,15 @@ for(i in levels(cambers)){
   foil_midline_sm <- find_midline(foil$x, foil$y, smoothed = T, plot = F)
   new_midline <- adjust_midline(foil_midline_sm, camber_new, plot = F)
   new_foil <- create_new_foil(new_midline, plot = F)
-  write.table(new_foil, file = paste0("./data/airfoils/gpc_camber_files/AS_camber_", i, ".dat"), 
+  write.table(new_foil, file = paste0("./data/airfoils/gPC_camber_files/AS_camber_", i, ".dat"), 
               row.names = F, col.names = F)
 }
 
 #### NN parameter set ####
 
-dir.create("./data/airfoils/nn_camber_files", showWarnings = FALSE)
+dir.create("./data/airfoils/NN_camber_files", showWarnings = FALSE)
+dir.create("./results/NN_noLogRe_matfiles/", showWarnings = FALSE)
+dir.create("./results/NN_LogRe_matfiles/", showWarnings = FALSE)
 
 # Load parameters and extract cambers
 nn_params <- read.csv("./data/parameters/NN_Params_noLogRe.csv",
@@ -43,7 +49,7 @@ for(i in cambers){
   foil_midline_sm <- find_midline(foil$x, foil$y, smoothed = T, plot = F)
   new_midline <- adjust_midline(foil_midline_sm, camber_new, plot = F)
   new_foil <- create_new_foil(new_midline, plot = F)
-  write.table(new_foil, file = paste0("./data/airfoils/nn_camber_files/AS_camber_", i, ".dat"), 
+  write.table(new_foil, file = paste0("./data/airfoils/NN_camber_files/AS_camber_", i, ".dat"), 
               row.names = F, col.names = F)
 }
 

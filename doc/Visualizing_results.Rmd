@@ -5,43 +5,95 @@ output: html_notebook
 ```{r setup}
 library(ggplot2)
 library(patchwork)
+column_names <- c("Re", "alpha", "camber")
 ```
 
 # Foil Study -- Visualizing Results
 
-## gPC study 
+## gPC studies
+
+
+
+### gPC for non-log transformed Re
+
+Loading results for gPC noLog Re: 
 
 ```{r}
-column_names <- c("Re", "aoa", "camber")
 params_gpc_nolog <- read.csv("./data/parameters/gPC_Params_noLogRe.csv", 
                              header = FALSE)
 colnames(params_gpc_nolog) <- column_names
-params_gpc_nolog$camber <- factor(params_gpc_nolog$camber)
+
+#gpc_nolog_results <- read.csv("./results/gPC_noLogRe_results.csv")
+#gpc_nolog_results <- gpc_nolog_results[order(gpc_nolog_results$sim),]
+#gpc_nolog_results$CLCD <- gpc_nolog_results$CL/gpc_nolog_results$CD
+#complete_gpc_nolog <- cbind(params_gpc_nolog, gpc_nolog_results)
+```
+
+Convergence rate: `100-round(sum(is.nan(complete_gpc_nolog$CL))/nrow(complete_gpc_nolog)*100,digits = 0)`%.
+
+Plotting parameters for GPC (Re no log) showing where simulations did not converge:
+
+```{r}
+#p1_gpc_nolog <- ggplot(complete_gpc_nolog, aes(Re, camber, color = 
+#                                                 is.nan(CL))) + 
+#  geom_point(position = position_jitter()) +
+#  scale_color_manual(values = c("black", "red"), name = "Convergence",
+#                     labels = c("success", "failure")) +
+#  theme_minimal() +
+#  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+#p2_gpc_nolog <- ggplot(complete_gpc_nolog, aes(Re, alpha, color = 
+#                                                 is.nan(CL))) + 
+#  geom_point(position = position_jitter()) +
+#  scale_color_manual(values = c("black", "red"), name = "Convergence",
+#                     labels = c("success", "failure")) +
+#  theme_minimal() + 
+#  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+#p1_gpc_nolog + p2_gpc_nolog + plot_layout(guides = "collect") &
+#  theme(legend.position = "bottom")
+```
+
+```{r gpc_nolog_plots, warning=FALSE}
+ggplot(complete_gpc_nolog, aes(camber, CLCD)) + 
+  geom_point() +theme_bw()
+```
+
+### gPC with log-transformed Re
+
+Loading results for log-transformed Re study: 
+
+```{r}
 params_gpc_log <- read.csv("./data/parameters/gPC_Params_LogRe.csv",
                            header = FALSE)
 colnames(params_gpc_log) <- column_names
-params_gpc_log$camber <- factor(params_gpc_log$camber)
+gpc_log_results <- read.csv("./results/gPC_LogRe_results.csv")
+gpc_log_results <- gpc_log_results[order(gpc_log_results$sim),]
+gpc_log_results$CLCD <- gpc_log_results$CL/gpc_log_results$CD
+complete_gpc_log <- cbind(params_gpc_log, gpc_log_results)
 ```
 
+Convergence rate: `r 100-round(sum(is.nan(complete_gpc_log$CL))/nrow(complete_gpc_log)*100,digits = 0)`%.
 
-Plotting parameters for GPC (Re log)
+Plotting parameters for GPC (Re log) showing where simulations did not converge:
+
 ```{r}
-p1_gpc_log <- ggplot(params_gpc_log, aes(Re, camber)) + geom_point() + 
-  theme_minimal()
-p2_gpc_log <- ggplot(params_gpc_log, aes(Re, aoa)) + geom_point() +
-  theme_minimal()
+p1_gpc_log <- ggplot(complete_gpc_log, aes(Re, camber, color = 
+                                                 is.nan(CL))) + 
+  geom_point(position = position_jitter()) +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+p2_gpc_log <- ggplot(complete_gpc_log, aes(Re, alpha, color = 
+                                                 is.nan(CL))) + 
+  geom_point(position = position_jitter()) +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
-p1_gpc_log + p2_gpc_log
-```
-
-Plotting parameters for GPC (Re no log)
-```{r}
-p1_gpc_nolog <- ggplot(params_gpc_nolog, aes(Re, camber)) + geom_point() +
-  theme_minimal()
-p2_gpc_nolog <- ggplot(params_gpc_nolog, aes(Re, aoa)) + geom_point() +
-  theme_minimal()
-
-p1_gpc_nolog + p2_gpc_nolog
+p1_gpc_log + p2_gpc_log + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 
@@ -54,14 +106,16 @@ colnames(params_nn_log) <- column_names
 params_nn_nolog <- read.csv("./data/parameters/NN_Params_noLogRe.csv", 
                           header = FALSE)
 colnames(params_nn_nolog) <- column_names
-
+nn_nolog_results <- read.csv("./results/NN_noLogRe_results.csv")
+nn_nolog_results <- nn_nolog_results[order(nn_nolog_results$sim),]
+complete_nn_nolog <- cbind(params_nn_nolog, nn_nolog_results)
 ```
 
 Plotting parameters for NN (Re log)
 ```{r}
 p1_nn_log <- ggplot(params_nn_log, aes(Re, camber)) + geom_point() +
   theme_minimal()
-p2_nn_log <- ggplot(params_nn_log, aes(Re, aoa)) + geom_point() +
+p2_nn_log <- ggplot(params_nn_log, aes(Re, alpah)) + geom_point() +
   theme_minimal()
 
 p1_nn_log + p2_nn_log
@@ -71,7 +125,7 @@ Plotting parameters for NN (Re no log)
 ```{r}
 p1_nn_nolog <- ggplot(params_nn_nolog, aes(Re, camber)) + geom_point() +
   theme_minimal()
-p2_nn_nolog <- ggplot(params_nn_nolog, aes(Re, aoa)) + geom_point() +
+p2_nn_nolog <- ggplot(params_nn_nolog, aes(Re, alpah)) + geom_point() +
   theme_minimal()
 
 p1_nn_nolog + p2_nn_nolog
