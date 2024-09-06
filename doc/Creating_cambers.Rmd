@@ -1,6 +1,7 @@
 ---
 title: "Creating Cambers Notebook"
-output: html_notebook
+output:
+  html_notebook: default
 ---
 
 # Foil Study -- Creating Cambers

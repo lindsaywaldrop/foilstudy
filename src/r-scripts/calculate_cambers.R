@@ -9,7 +9,6 @@ dir.create("./results", showWarnings = F)
 # Load template foil
 foil <- read.table("./data/airfoils/AS6091.dat", skip = 0)
 colnames(foil) <- c("x", "y")
-npts <- nrow(foil)
 
 #### GPC parameter set ####
 
@@ -23,6 +22,7 @@ gpc_params <- read.csv("./data/parameters/gPC_Params_noLogRe.csv",
                     col.names = c("Re", "aoa", "camber"))
 cambers <- factor(gpc_params$camber)
 
+# Produce and save each camber file:
 for(i in levels(cambers)){
   camber_new <- as.numeric(i)
   foil_midline_sm <- find_midline(foil$x, foil$y, smoothed = T, plot = F)
@@ -44,6 +44,7 @@ nn_params <- read.csv("./data/parameters/NN_Params_noLogRe.csv",
                        col.names = c("Re", "aoa", "camber"))
 cambers <- nn_params$camber
 
+# Produce and save each camber file:
 for(i in cambers){
   camber_new <- i
   foil_midline_sm <- find_midline(foil$x, foil$y, smoothed = T, plot = F)
