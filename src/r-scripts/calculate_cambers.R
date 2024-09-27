@@ -10,6 +10,29 @@ dir.create("./results", showWarnings = F)
 foil <- read.table("./data/airfoils/AS6091.dat", skip = 0)
 colnames(foil) <- c("x", "y")
 
+#### grid parameter set ####
+
+dir.create("./data/airfoils/grid_camber_files", showWarnings = FALSE)
+dir.create("./results/grid_noLogRe_matfiles/", showWarnings = FALSE)
+
+# Load parameters and extract cambers
+grid_params <- read.csv("./data/parameters/grid_Params_noLogRe.csv",
+                       header = FALSE,
+                       col.names = c("Re", "aoa", "camber"))
+cambers <- factor(grid_params$camber)
+
+# Produce and save each camber file:
+for(i in levels(cambers)){
+  print(i)
+  camber_new <- as.numeric(i)
+  foil_midline_sm <- find_midline(foil$x, foil$y, smoothed = T, plot = F)
+  new_midline <- adjust_midline(foil_midline_sm, camber_new, plot = F)
+  new_foil <- create_new_foil(new_midline, plot = F)
+  write.table(new_foil, file = paste0("./data/airfoils/grid_camber_files/AS_camber_", i, ".dat"), 
+              row.names = F, col.names = F)
+}
+
+
 #### GPC parameter set ####
 
 dir.create("./data/airfoils/gPC_camber_files", showWarnings = FALSE)
