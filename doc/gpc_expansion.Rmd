@@ -1,0 +1,139 @@
+---
+title: "R Notebook for gpc expansion"
+output: html_notebook
+---
+
+```{r setup}
+library(pracma)
+library(ggplot2)
+library(patchwork)
+```
+
+Based on Nick Battista's MATLAB code. 
+
+Load custom functions: 
+
+```{r}
+source("./src/r-scripts/gPC_functions.R")
+source("./src/r-scripts/gpc_user_specified_model.R")
+```
+
+Initial parameters: 
+
+```{r initial-parameters}
+save_info <- 0;
+test_flag <- 1;
+```
+
+Set gPC parameters:
+
+```{r set-gpc-parameters}
+n <- 3; 
+p <- 6;
+cap_p <- nchoosek(n+p, p)
+```
+
+Find collocation points:
+
+```{r collocation-points}
+poly_roots <- Legendre_roots(p + 1)
+poly_roots_matlab <- read.csv("./doc/poly_roots.csv", header = F)
+root_diffs <- test_matlab_match(poly_roots, poly_roots_matlab, 1e-14)
+any(is.na(root_diffs))
+```
+
+Find combinations of all collocation points: 
+
+```{r}
+param_combo <- compute_all_collo_pt_combos(n, poly_roots)
+param_combo_matlab <- as.matrix(read.csv("./doc/param_combo.csv", header = F))
+diff <- test_matlab_match(param_combo, param_combo_matlab, 1e-14)
+any(is.na(diff))
+```
+
+Get subset of all parameter combinations for least squares: 
+
+```{r}
+n_subset <- 1*(n-1)*cap_p
+param_combo_subset <- sample_parameter_combos(n_subset, param_combo, test_flag)
+param_combo_subset_matlab <- as.matrix(read.csv("./doc/param_combo_subset.csv", header = F))
+diff_subset <- test_matlab_match(param_combo_subset, param_combo_subset_matlab, 1e-14)
+any(is.na(diff_subset))
+```
+There is one set of numbers that is not the same! I can't track down the problem here. 
+
+Multivaribale Lengendre polynomial ordering:
+
+```{r}
+alpha_mat <- create_polynomial_ordering(n, p)
+alpha_mat_matlab <- read.csv("./doc/alpha_new.csv", header = F)
+diff <- test_matlab_match(alpha_mat, alpha_mat_matlab, 1e-14)
+any(is.na(diff))
+```
+
+Create information matrix: 
+
+```{r}
+info_mat <- create_info_matrix(n, p, cap_p, param_combo_subset, alpha_mat)
+info_mat_matlab <- as.matrix(read.csv("./doc/info_mat.csv", header = F))
+diff <- NULL
+for(i in 1:nrow(info_mat)){
+  diff[i] <- all.equal(info_mat[i,], info_mat_matlab[diff_subset[i],], check.attributes = F)
+}
+diff <- as.logical(diff)
+print(diff)
+```
+
+Evaluate user-specified model for particular parameter combos:
+
+```{r}
+Y <- rep(0, nrow(param_combo_subset))
+for(i in 1:nrow(param_combo_subset)){
+  Y[i] <- user_specified_model(param_combo_subset[i, ])
+}
+matlab_Y <- read.csv("./doc/Y.csv", header = F)
+matlab_Y <- matlab_Y[, 1]
+abs(Y - matlab_Y[diff_subset]) < 1e-13
+```
+Solve for coefficients via least-squares with SVD:
+
+```{r}
+temp_mat <- t(info_mat) %*% info_mat
+S <- svd(temp_mat)
+sigma <- diag(S$d, cap_p, cap_p)
+matlab_sigma <- as.matrix(read.csv("./doc/sigma.csv", header = F))
+s_coeffs <- S$v %*% solve(sigma) %*% Conj(t.default(S$u)) %*% t(info_mat) %*% Y
+s_coeffs_matlab <- read.csv("./doc/s_coeffs.csv", header = F)
+```
+
+Compute errors between gPC surrogate and true model function:
+
+```{r}
+sobol_seed <- 12
+test_errors <- compute_validation_and_testing_error(n, s_coeffs, alpha_mat, 
+                                     param_combo_subset, sobol_seed)
+
+err_rel_train <- abs(test_errors$training$gpc_dat - test_errors$training$real_dat) / abs(test_errors$training$real_dat) * 100
+print("~*~._.~*~ Training set ~*~._.~*~")
+print(paste("median error:", round(median(err_rel_train, na.rm = T), digits = 2)))
+print(paste(c("min error:", "max error:"), round(range(err_rel_train), digits = 2)))
+print(paste("standard deviation:", round(sd(err_rel_train, na.rm = T),digits = 2)))
+
+err_rel_test <- abs(test_errors$testing$gpc_dat - test_errors$testing$real_dat) / abs(test_errors$testing$real_dat) * 100
+print("~*~._.~*~ Testing set ~*~._.~*~");
+print(paste("median error:", round(median(err_rel_test, na.rm = T), digits = 2)))
+print(paste(c("min error:", "max error:"), round(range(err_rel_test), digits = 2)))
+print(paste("standard deviation:", round(sd(err_rel_test, na.rm = T), digits = 2)))
+```
+Testing expansion on 2D subspace:
+
+```{r}
+plots <- test_gpc_expansion(s_coeffs, alpha_mat)
+
+plots[[1]] + plots[[2]] + plot_layout(guides = "collect")
+```
+Compute the Sobol indices: 
+
+```{r}
+sobols <- compute_sobol_indices(s_coeffs, alpha_mat)
+```
