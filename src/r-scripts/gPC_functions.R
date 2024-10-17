@@ -345,7 +345,7 @@ compute_sobol_indices <- function(s_coeffs, alpha_mat){
   sigma_sqr <- sum((s_coeffs[-1])^2 * e_psi_sqr_vec[-1])
   
   # initialization
-  s_first <- rep(0, n)
+  s_first <- rep(NA, n)
   
   # compute first-order index
   for (i in 1:n){
@@ -371,9 +371,10 @@ compute_sobol_indices <- function(s_coeffs, alpha_mat){
     s_first[i] <- s_aux
   }
   
+  # Compute TOTAL-Order Index
+  
   s_total <- rep(NA, n)
   
-  # Compute TOTAL-Order Index
   for (i in 1:n){  # Loop over every uncertain parameter
     # Loop over every row in Coeffs / alpha index matrix for a particular
     #  uncertain parameter, x_i
@@ -383,7 +384,7 @@ compute_sobol_indices <- function(s_coeffs, alpha_mat){
     for(j in 1:p){
       # if parameter has non-zero index in alpha_mat
       if(alpha_mat[j,i] != 0){
-        s_aux <- s_aux + s_coeff[j]^2 * e_psi_sqr_vec[j]
+        s_aux <- s_aux +((s_coeffs[j]^2) * e_psi_sqr_vec[j])
         k_vec <- c(k_vec, j)
         ct <- ct + 1
       }
@@ -391,6 +392,70 @@ compute_sobol_indices <- function(s_coeffs, alpha_mat){
     s_aux <- s_aux / sigma_sqr
     s_total[i] <- s_aux
   }
+  
+  # compute s123... Index
+  
+  s123 <- rep(NA, n)
+  
+  for(i in 1:n){
+    ct <- 0
+    k_vec <- NULL
+    s_aux <- 0
+    for(j in 1:p){
+      use_this <- 1
+      for(k in 1:n) if(alpha_mat[j,k] == 0) use_this <- 0
+      if(use_this == 1){
+        s_aux <- s_aux + ((s_coeffs[j]^2) * e_psi_sqr_vec[j])
+        k_vec <- c(k_vec, j)
+        ct <- ct + 1
+      }
+    }
+    s_aux <- s_aux / sigma_sqr
+    s123[i] <- s_aux
+  }
+  
+  # Compute Second-Order Index
+  inds_vec <- 1:n
+  s2nd <- matrix(NA, nrow = n, ncol = n)
+  for(i1 in 1:n){
+    # first index
+    ind1 <- i1
+    start_i2 <- i1 + 1
+    if(start_i2 > n) break
+    for(i2 in start_i2:n){
+      # second index
+      ind2 <- i2
+      
+      # reinitiate-Auxillary indices vector
+      inds_aux <- rep(0, length(inds_vec))
+      
+      # store indices being compared and find indices that must be zero
+      inds_aux[ind1] <- ind1
+      inds_aux[ind2] <- ind2
+      inds_test <- which((inds_vec - inds_aux) != 0)
+      
+      # Loop over every row in Coeffs / alpha index matrix for a particular
+      #       uncertain parameter, x_i
+      ct <- 0
+      k_vec <- NULL
+      s_aux <- 0
+      for(j in 1:p){
+        use_this <- 1
+        for(k in 1:length(inds_test)) if(any(alpha_mat[j,inds_test] != 0)) use_this <- 0
+        
+        # if only non-zero indices correspond to parameters of interest
+        if(alpha_mat[j,i1] != 0 & alpha_mat[j, i2] != 0 & use_this == 1){
+          s_aux <- s_aux + ((s_coeffs[j]^2) * e_psi_sqr_vec[j])
+          k_vec <- c(k_vec, j)
+          ct <- ct + 1
+        }
+      }
+      s_aux <- s_aux / sigma_sqr
+      s2nd[i1, i2] <- s_aux
+    }
+  }
+  return(list("s_first" = s_first, "s_total" = s_total, "s2nd" = s2nd, 
+              "s123" = s123))
 }
 
 compute_expectation_psi_squared <- function(alpha_mat){
