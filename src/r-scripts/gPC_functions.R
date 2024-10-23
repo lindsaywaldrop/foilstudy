@@ -1,6 +1,6 @@
 #gPC functions
 
-Legendre_roots <- function(degree){
+Legendre_roots <- function(degree, test_flag = 0){
   # get roots of (n+1)^(st) Legendre polynomial
   
   #get coefficients of the nth degree Legendre polynomial
@@ -11,7 +11,17 @@ Legendre_roots <- function(degree){
   # Method 1
   #leg_roots <- roots(coeffs)
   #leg_roots <- sort(leg_roots)
-  return(leg_roots)
+  leg_roots <- leg_roots[,1]
+  if(test_flag == 1){
+    poly_roots <- leg_roots
+    poly_roots_matlab <- read.csv("./test/gpc_matlab/poly_roots.csv", header = F)
+    root_diffs <- test_matlab_match(poly_roots, poly_roots_matlab, 1e-14)
+    poly_roots <- poly_roots[root_diffs]
+    print(all.equal(poly_roots_matlab[,1], poly_roots))
+    return(poly_roots)
+  } else{
+    return(leg_roots)
+  }
 }
 
 Legendre_poly_coeffs <- function(n){
@@ -37,7 +47,7 @@ Legendre_poly_coeffs <- function(n){
   return(coeffs)
 }
 
-compute_all_collo_pt_combos <- function(n, poly_roots){
+compute_all_collo_pt_combos <- function(n, poly_roots, test_flag = 0){
   # combine all plausible collocation points, i.e., combine
   # roots of Legendre polynomial --> uses same machinery
   # as creating the alphaMAT indices of the polynomial.
@@ -69,6 +79,10 @@ compute_all_collo_pt_combos <- function(n, poly_roots){
     # REDEFINE root_mat to include new left_vector and stacked root_mat!
     root_mat <- cbind(left_add, root_stack)
   }
+  if(test_flag == 1){
+    param_combo_matlab <- as.matrix(read.csv("./test/gpc_matlab/param_combo.csv", header = F))
+    print(all.equal(root_mat, param_combo_matlab, check.attributes = F))
+  }
   return(root_mat)
 }
 
@@ -89,7 +103,7 @@ sample_parameter_combos <- function(n_subset, param_combo, test_flag){
   }
   
   if(test_flag == 1){
-    matlab_distanceVec <- t(as.matrix(read.csv("./doc/distanceVec.csv", header = F)))
+    matlab_distanceVec <- t(as.matrix(read.csv("./test/gpc_matlab/distanceVec.csv", header = F)))
     print(all.equal(distance_vec, matlab_distanceVec[,1], check.attributes = F))
   }
   
@@ -97,18 +111,26 @@ sample_parameter_combos <- function(n_subset, param_combo, test_flag){
   inds <- order(round(distance_vec, 10))
   
   if(test_flag == 1){
-    matlab_inds <- t(as.matrix(read.csv("./doc/inds.csv", header = F)))
+    matlab_inds <- t(as.matrix(read.csv("./test/gpc_matlab/inds.csv", header = F)))
     print(all.equal(inds, matlab_inds[,1], check.attributes = F))
   }
   
   param_combo <- param_combo[inds,]
+  
   # take first N_subset
   param_combo_subset <- param_combo[1:n_subset,]
+  
+  if(test_flag == 1){
+    param_combo_subset_matlab <- as.matrix(read.csv("./test/gpc_matlab/param_combo_subset.csv", header = F))
+    diff_subset <- test_matlab_match(param_combo_subset, param_combo_subset_matlab, 1e-10)
+    print(all.equal(param_combo_subset, param_combo_subset_matlab, check.attributes = F))  
+  }
+  
   
   return(param_combo_subset)
 }
 
-create_polynomial_ordering <- function(n, p){
+create_polynomial_ordering <- function(n, p, test_flag){
   # get convention for how to setup multivariable Legendre
   #           polynomial
   
@@ -148,10 +170,16 @@ create_polynomial_ordering <- function(n, p){
       alpha_new <- rbind(alpha_new, alpha_mat[i,])
     }
   }
+  
+  if(test_flag == 1){
+    alpha_mat_matlab <- as.matrix(read.csv("./test/gpc_matlab/alpha_new.csv", header = F))
+    print(all.equal(alpha_new, alpha_mat_matlab, check.attributes = F))
+  }
+  
   return(alpha_new)
 }
 
-create_info_matrix <- function(n, p, cap_p, param_combo_subset, alpha_mat){
+create_info_matrix <- function(n, p, cap_p, param_combo_subset, alpha_mat, test_flag){
   # create INFORMATION MATRIX
   info_mat <- matrix(NA, ncol = cap_p, nrow = nrow(param_combo_subset))
   # Loop over all test points
@@ -165,6 +193,11 @@ create_info_matrix <- function(n, p, cap_p, param_combo_subset, alpha_mat){
       # paramVec (i+1 bc i starts at 0)
       info_mat[j, i + 1] <- multi_dim_Legendre_poly(alpha_vec, param_vec)
     }
+  }
+  
+  if(test_flag == 1){
+    info_mat_matlab <- as.matrix(read.csv("./test/gpc_matlab/info_mat.csv", header = F))
+    print(all.equal(info_mat, info_mat_matlab, check.attributes = F))
   }
   return(info_mat)
 }
