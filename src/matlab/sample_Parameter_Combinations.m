@@ -27,6 +27,6 @@ function param_combo = sample_Parameter_Combinations(N_subset,param_combo)
     %----------------------------------------------------------------------
     % Re-order the data in distanceVec, get orig inds, take first N_subset
     %----------------------------------------------------------------------
-    [~,inds] = sort( distanceVec );
+    [~,inds] = sort( round(distanceVec, 10) );
     %
     param_combo = param_combo(inds(1:N_subset),:);

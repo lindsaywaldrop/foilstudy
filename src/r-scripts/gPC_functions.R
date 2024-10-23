@@ -6,8 +6,11 @@ Legendre_roots <- function(degree){
   #get coefficients of the nth degree Legendre polynomial
   coeffs <- Legendre_poly_coeffs(degree)
   # find roots of polynomial with those coefficients
-  leg_roots <- roots(coeffs)
-  leg_roots <- sort(leg_roots)
+  # Method 2
+  leg_roots <- polyroots(coeffs, n = 1e-16)
+  # Method 1
+  #leg_roots <- roots(coeffs)
+  #leg_roots <- sort(leg_roots)
   return(leg_roots)
 }
 
@@ -50,7 +53,7 @@ compute_all_collo_pt_combos <- function(n, poly_roots){
     left_add <- NULL
     for(j in 1:num_roots){
       # create a vector of all 'j' values of length of previous root matrix
-      left_aux <- poly_roots[j] * rep(1, dim(root_mat)[1]);
+      left_aux <- poly_roots[j] * rep(1, nrow(root_mat))
       # concatenate new left-most vector for root_mat
       left_add <- c(left_add, left_aux)
     }
@@ -79,7 +82,7 @@ sample_parameter_combos <- function(n_subset, param_combo, test_flag){
     # of parameter combination
     sum_dat <- 0
     for(j in 1:ncol(param_combo)){
-      sum_dat <- sum_dat + (param_combo[i, j])^2
+      sum_dat <- sum_dat + ((param_combo[i, j])^2)
     }
     #distance from origin
     distance_vec[i] <- sum_dat
@@ -87,13 +90,18 @@ sample_parameter_combos <- function(n_subset, param_combo, test_flag){
   
   if(test_flag == 1){
     matlab_distanceVec <- t(as.matrix(read.csv("./doc/distanceVec.csv", header = F)))
-    diff <- test_matlab_match(distance_vec, matlab_distanceVec, 1e-14)
-    print(any(is.na(diff)))
+    print(all.equal(distance_vec, matlab_distanceVec[,1], check.attributes = F))
   }
   
-  # Re-order the data in distanceVec, get orig inds
-  inds <- order(distance_vec)
-  param_combo <- param_combo[order(distance_vec),]
+  # Re-order the data in distance_vec, get orig inds
+  inds <- order(round(distance_vec, 10))
+  
+  if(test_flag == 1){
+    matlab_inds <- t(as.matrix(read.csv("./doc/inds.csv", header = F)))
+    print(all.equal(inds, matlab_inds[,1], check.attributes = F))
+  }
+  
+  param_combo <- param_combo[inds,]
   # take first N_subset
   param_combo_subset <- param_combo[1:n_subset,]
   
@@ -224,6 +232,7 @@ Legendre_poly <- function(b, x){
 
 compute_validation_and_testing_error <- function(n, s_coeffs, alpha_mat, training_params,
                                                  sobol_seed = 0){
+  require(spacefillr)
   # Compute Validation and Testing Error across full 3D parameter space
   # -> Samples full space using Sobol' sequence
   #  INPUTS:  n: # of uncertain parameters
@@ -295,7 +304,7 @@ test_gpc_expansion <- function(s_coeffs, alpha_mat){
       
       # Get specific (x,y,z) value to test in expansion 
       x <- x_vec[i]
-      y <- y_vec[i]
+      y <- y_vec[j]
       z <- 0.9     # choose a specific 2D subspace
       
       
@@ -357,10 +366,14 @@ compute_sobol_indices <- function(s_coeffs, alpha_mat){
     for(j in 1:p){
       # determine if all other indices are zero (or not) in alpha index matrix:
       use_this <- 1
-      for(k in 1:n) if(k != i & alpha_mat[j,k] != 0) use_this <- 0
+      for(k in 1:n) {
+        if(k != i){
+          if(alpha_mat[j,k] != 0) use_this <- 0
+        } 
+      }
       
       # if only non-zero index corresponds to parameter of interest
-      if(alpha_mat[j,i] != 0 & use_this == 1){
+      if(alpha_mat[j,i] != 0 && use_this == 1){
         s_aux <- s_aux + s_coeffs[j]^2 * e_psi_sqr_vec[j]
         k_vec <- c(k_vec, j)
         ct <- ct + 1

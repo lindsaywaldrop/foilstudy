@@ -49,7 +49,7 @@ user_specified_model <- function(vec){
   vec_trans <- transform_values_to_desired_interval(vec, A, B)
   
   # Evaluate Ishigami function
-  val <- sin(vec_trans[1]) + a*(sin(vec_trans[2]))^2 + (b*(vec_trans[3])^4) * sin(vec_trans[1])
+  val <- sin(vec_trans[1]) + (a*((sin(vec_trans[2]))^2)) + ((b*((vec_trans[3])^4)) * sin(vec_trans[1]))
   
   return(val)
 }
