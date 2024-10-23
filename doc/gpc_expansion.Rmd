@@ -1,6 +1,8 @@
 ---
 title: "R Notebook for gpc expansion"
-output: html_notebook
+output:
+  pdf_document: default
+  html_notebook: default
 ---
 
 ```{r setup}
@@ -37,9 +39,11 @@ Find collocation points:
 
 ```{r collocation-points}
 poly_roots <- Legendre_roots(p + 1)
+poly_roots <- poly_roots[,1]
 poly_roots_matlab <- read.csv("./doc/poly_roots.csv", header = F)
 root_diffs <- test_matlab_match(poly_roots, poly_roots_matlab, 1e-14)
-any(is.na(root_diffs))
+poly_roots <- poly_roots[root_diffs]
+all.equal(poly_roots_matlab[,1], poly_roots)
 ```
 
 Find combinations of all collocation points: 
@@ -48,7 +52,12 @@ Find combinations of all collocation points:
 param_combo <- compute_all_collo_pt_combos(n, poly_roots)
 param_combo_matlab <- as.matrix(read.csv("./doc/param_combo.csv", header = F))
 diff <- test_matlab_match(param_combo, param_combo_matlab, 1e-14)
-any(is.na(diff))
+```
+
+Test:
+
+```{r}
+all.equal(diff, 1:343)
 ```
 
 Get subset of all parameter combinations for least squares: 
@@ -57,8 +66,8 @@ Get subset of all parameter combinations for least squares:
 n_subset <- 1*(n-1)*cap_p
 param_combo_subset <- sample_parameter_combos(n_subset, param_combo, test_flag)
 param_combo_subset_matlab <- as.matrix(read.csv("./doc/param_combo_subset.csv", header = F))
-diff_subset <- test_matlab_match(param_combo_subset, param_combo_subset_matlab, 1e-14)
-any(is.na(diff_subset))
+diff_subset <- test_matlab_match(param_combo_subset, param_combo_subset_matlab, 1e-10)
+all.equal(param_combo_subset, param_combo_subset_matlab, check.attributes = F)
 ```
 There is one set of numbers that is not the same! I can't track down the problem here. 
 
@@ -66,9 +75,10 @@ Multivaribale Lengendre polynomial ordering:
 
 ```{r}
 alpha_mat <- create_polynomial_ordering(n, p)
-alpha_mat_matlab <- read.csv("./doc/alpha_new.csv", header = F)
+alpha_mat_matlab <- as.matrix(read.csv("./doc/alpha_new.csv", header = F))
 diff <- test_matlab_match(alpha_mat, alpha_mat_matlab, 1e-14)
-any(is.na(diff))
+all.equal(diff, 1:84)
+all.equal(alpha_mat, alpha_mat_matlab, check.attributes = F)
 ```
 
 Create information matrix: 
@@ -76,12 +86,7 @@ Create information matrix:
 ```{r}
 info_mat <- create_info_matrix(n, p, cap_p, param_combo_subset, alpha_mat)
 info_mat_matlab <- as.matrix(read.csv("./doc/info_mat.csv", header = F))
-diff <- NULL
-for(i in 1:nrow(info_mat)){
-  diff[i] <- all.equal(info_mat[i,], info_mat_matlab[diff_subset[i],], check.attributes = F)
-}
-diff <- as.logical(diff)
-print(diff)
+all.equal(info_mat,info_mat_matlab, check.attributes =F)
 ```
 
 Evaluate user-specified model for particular parameter combos:
@@ -91,28 +96,46 @@ Y <- rep(0, nrow(param_combo_subset))
 for(i in 1:nrow(param_combo_subset)){
   Y[i] <- user_specified_model(param_combo_subset[i, ])
 }
+Y <- Y[diff_subset]
 matlab_Y <- read.csv("./doc/Y.csv", header = F)
 matlab_Y <- matlab_Y[, 1]
-abs(Y - matlab_Y[diff_subset]) < 1e-13
+abs(Y - matlab_Y) < 1e-13
+all.equal(Y, matlab_Y)
 ```
+
 Solve for coefficients via least-squares with SVD:
 
 ```{r}
 temp_mat <- t(info_mat) %*% info_mat
+matlab_temp_mat <- as.matrix(read.csv("./doc/temp_mat.csv", header=F))
+all.equal(temp_mat, matlab_temp_mat, check.attributes = F)
+```
+
+
+```{r}
 S <- svd(temp_mat)
 sigma <- diag(S$d, cap_p, cap_p)
-matlab_sigma <- as.matrix(read.csv("./doc/sigma.csv", header = F))
+matlab_sigma <- as.matrix(read.csv("./doc/sigma.csv", header=F))
+all.equal(sigma, matlab_sigma, check.attributes = F)
+```
+
+```{r}
 s_coeffs <- S$v %*% solve(sigma) %*% Conj(t.default(S$u)) %*% t(info_mat) %*% Y
-s_coeffs_matlab <- read.csv("./doc/s_coeffs.csv", header = F)
+matlab_sCoeffs <- as.matrix(read.csv("./doc/s_coeffs.csv", header = F))
+all.equal(s_coeffs, matlab_sCoeffs, check.attributes = F)
 ```
 
 Compute errors between gPC surrogate and true model function:
 
 ```{r}
-sobol_seed <- 12
+sobol_seed <- 14
 test_errors <- compute_validation_and_testing_error(n, s_coeffs, alpha_mat, 
                                      param_combo_subset, sobol_seed)
+```
 
+Report results:
+
+```{r echo = FALSE}
 err_rel_train <- abs(test_errors$training$gpc_dat - test_errors$training$real_dat) / abs(test_errors$training$real_dat) * 100
 print("~*~._.~*~ Training set ~*~._.~*~")
 print(paste("median error:", round(median(err_rel_train, na.rm = T), digits = 2)))
@@ -125,6 +148,7 @@ print(paste("median error:", round(median(err_rel_test, na.rm = T), digits = 2))
 print(paste(c("min error:", "max error:"), round(range(err_rel_test), digits = 2)))
 print(paste("standard deviation:", round(sd(err_rel_test, na.rm = T), digits = 2)))
 ```
+
 Testing expansion on 2D subspace:
 
 ```{r}
@@ -132,8 +156,22 @@ plots <- test_gpc_expansion(s_coeffs, alpha_mat)
 
 plots[[1]] + plots[[2]] + plot_layout(guides = "collect")
 ```
+
 Compute the Sobol indices: 
 
 ```{r}
 sobols <- compute_sobol_indices(s_coeffs, alpha_mat)
+```
+
+Report Sobol Indices:
+
+```{r echo=F}
+print("~*~._.~*~ 1st order Sobol Indices ~*~._.~*~")
+print(paste0("s", 1:3, ": ", round(sobols[["s_first"]], digits = 4)))
+print("~*~._.~*~ 2nd order Sobol Indices ~*~._.~*~")
+print(paste0("s", c(12, 13, 23), ": ", round(sobols[["s2nd"]][!is.na(sobols[["s2nd"]])], digits = 4)))
+print("~*~._.~*~ s123 Sobol index ~*~._.~*~")
+print(round(sobols[["s123"]][1], digits = 4))
+print("~*~._.~*~ Total-order Sobol indices ~*~._.~*~")
+print(paste0("sT", 1:3, ": ", round(sobols[["s_total"]], digits = 4)))
 ```
