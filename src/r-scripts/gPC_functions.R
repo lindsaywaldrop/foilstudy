@@ -17,7 +17,7 @@ Legendre_roots <- function(degree, test_flag = 0){
     poly_roots_matlab <- read.csv("./test/gpc_matlab/poly_roots.csv", header = F)
     root_diffs <- test_matlab_match(poly_roots, poly_roots_matlab, 1e-14)
     poly_roots <- poly_roots[root_diffs]
-    print(all.equal(poly_roots_matlab[,1], poly_roots))
+    print(all.equal(poly_roots_matlab[,1], poly_roots, tolerance = 1e-10))
     return(poly_roots)
   } else{
     return(leg_roots)
@@ -81,7 +81,7 @@ compute_all_collo_pt_combos <- function(n, poly_roots, test_flag = 0){
   }
   if(test_flag == 1){
     param_combo_matlab <- as.matrix(read.csv("./test/gpc_matlab/param_combo.csv", header = F))
-    print(all.equal(root_mat, param_combo_matlab, check.attributes = F))
+    print(all.equal(root_mat, param_combo_matlab, tolerance = 1e-10, check.attributes = F))
   }
   return(root_mat)
 }
@@ -104,7 +104,8 @@ sample_parameter_combos <- function(n_subset, param_combo, test_flag){
   
   if(test_flag == 1){
     matlab_distanceVec <- t(as.matrix(read.csv("./test/gpc_matlab/distanceVec.csv", header = F)))
-    print(all.equal(distance_vec, matlab_distanceVec[,1], check.attributes = F))
+    print(all.equal(distance_vec, matlab_distanceVec[,1], tolerance = 1e-10, 
+                    check.attributes = F))
   }
   
   # Re-order the data in distance_vec, get orig inds
@@ -112,7 +113,7 @@ sample_parameter_combos <- function(n_subset, param_combo, test_flag){
   
   if(test_flag == 1){
     matlab_inds <- t(as.matrix(read.csv("./test/gpc_matlab/inds.csv", header = F)))
-    print(all.equal(inds, matlab_inds[,1], check.attributes = F))
+    print(all.equal(inds, matlab_inds[,1], tolerance = 1e-10, check.attributes = F))
   }
   
   param_combo <- param_combo[inds,]
@@ -123,7 +124,8 @@ sample_parameter_combos <- function(n_subset, param_combo, test_flag){
   if(test_flag == 1){
     param_combo_subset_matlab <- as.matrix(read.csv("./test/gpc_matlab/param_combo_subset.csv", header = F))
     diff_subset <- test_matlab_match(param_combo_subset, param_combo_subset_matlab, 1e-10)
-    print(all.equal(param_combo_subset, param_combo_subset_matlab, check.attributes = F))  
+    print(all.equal(param_combo_subset, param_combo_subset_matlab, tolerance = 1e-10, 
+                    check.attributes = F))  
   }
   
   
@@ -173,7 +175,8 @@ create_polynomial_ordering <- function(n, p, test_flag){
   
   if(test_flag == 1){
     alpha_mat_matlab <- as.matrix(read.csv("./test/gpc_matlab/alpha_new.csv", header = F))
-    print(all.equal(alpha_new, alpha_mat_matlab, check.attributes = F))
+    print(all.equal(alpha_new, alpha_mat_matlab, tolerance = 1e-10, 
+                    check.attributes = F))
   }
   
   return(alpha_new)
@@ -197,7 +200,7 @@ create_info_matrix <- function(n, p, cap_p, param_combo_subset, alpha_mat, test_
   
   if(test_flag == 1){
     info_mat_matlab <- as.matrix(read.csv("./test/gpc_matlab/info_mat.csv", header = F))
-    print(all.equal(info_mat, info_mat_matlab, check.attributes = F))
+    print(all.equal(info_mat, info_mat_matlab, tolerance = 1e-10, check.attributes = F))
   }
   return(info_mat)
 }
