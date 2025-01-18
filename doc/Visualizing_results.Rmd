@@ -8,22 +8,74 @@ library(patchwork)
 
 ```
 
-# Foil Study -- Visualizing Results
+# Visualizing Results from the Original Reynolds-number range
 
-## gPC studies
+## Grid Study with Original Parameter Ranges
 
-
-### gPC with non-log transformed Re
-
-Loading results for gPC noLog Re: 
-
-```{r load-gpc-nolog}
+```{r load-grid-nolog-bad}
 column_names <- c("Re", "alpha", "camber")
-params_gpc_nolog <- read.csv("./data/parameters/gPC_Params_noLogRe.csv", 
+params_grid_nolog <- read.csv("./data/bad_parameters/grid_Params_noLogRe.csv", 
+                             header = FALSE)
+colnames(params_grid_nolog) <- column_names
+
+grid_nolog_results <- read.csv("./results/bad_results/grid_noLogRe_results.csv")
+grid_nolog_results <- grid_nolog_results[order(grid_nolog_results$sim),]
+grid_nolog_results$CLCD <- grid_nolog_results$CL/grid_nolog_results$CD
+complete_grid_nolog <- cbind(params_grid_nolog, grid_nolog_results)
+```
+
+Convergence rate: `r 100-round(sum(is.nan(complete_grid_nolog$CL))/nrow(complete_grid_nolog)*100,digits = 0)`%.
+
+Plotting parameters for gPC ($Re$ no log) showing where simulations did not converge:
+
+```{r grid-nolog-params-bad, warning=FALSE, echo=FALSE}
+p1_grid_nolog <- ggplot(complete_grid_nolog, aes(Re, camber, color = 
+                                                 is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+p2_grid_nolog <- ggplot(complete_grid_nolog, aes(Re, alpha, color = 
+                                                 is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+p1_grid_nolog + p2_grid_nolog + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+$CL/CD$ results: 
+
+```{r grid_nolog_plots-bad, warning=FALSE, echo=FALSE}
+(ggplot(complete_grid_nolog, aes(camber, CLCD)) + 
+  geom_point() + theme_bw())/ 
+(ggplot(complete_grid_nolog, aes(Re, CLCD)) + 
+  geom_point() + theme_bw()) /
+(ggplot(complete_grid_nolog, aes(alpha, CLCD)) + 
+  geom_point() + theme_bw()) 
+```
+
+## gPC Studies with Original Parameter Ranges
+
+These results reflect the original gPC results study that includes a range of Reynolds number ($Re$) and angle of attack ($aoa$) that created a large area in the parameter space of unstable simulations which did not converge (marked as failure points). We include these to demonstrate how important intrinsic validation is to the conclusions that one is able to draw from simulation studies. 
+
+Originally, we wanted to know if applying a log transform to the $Re$ range was appropriate since it covered several orders of magnitude. 
+
+### gPC with non-log transformed $Re$
+
+Loading results for gPC non-log transformed $Re$: 
+
+```{r load-gpc-nolog-bad}
+column_names <- c("Re", "alpha", "camber")
+params_gpc_nolog <- read.csv("./data/bad_parameters/gPC_Params_noLogRe.csv", 
                              header = FALSE)
 colnames(params_gpc_nolog) <- column_names
 
-gpc_nolog_results <- read.csv("./results/gPC_noLogRe_results.csv")
+gpc_nolog_results <- read.csv("./results/bad_results/gPC_noLogRe_results.csv")
 gpc_nolog_results <- gpc_nolog_results[order(gpc_nolog_results$sim),]
 gpc_nolog_results$CLCD <- gpc_nolog_results$CL/gpc_nolog_results$CD
 complete_gpc_nolog <- cbind(params_gpc_nolog, gpc_nolog_results)
@@ -31,19 +83,19 @@ complete_gpc_nolog <- cbind(params_gpc_nolog, gpc_nolog_results)
 
 Convergence rate: `r 100-round(sum(is.nan(complete_gpc_nolog$CL))/nrow(complete_gpc_nolog)*100,digits = 0)`%.
 
-Plotting parameters for GPC (Re no log) showing where simulations did not converge:
+Plotting parameters for gPC ($Re$ no log) showing where simulations did not converge:
 
-```{r gpc-nolog-params, warning=FALSE, echo=FALSE}
+```{r gpc-nolog-params-bad, warning=FALSE, echo=FALSE}
 p1_gpc_nolog <- ggplot(complete_gpc_nolog, aes(Re, camber, color = 
                                                  is.nan(CL))) + 
-  geom_point(position = position_jitter()) +
+  geom_point() +
   scale_color_manual(values = c("black", "red"), name = "Convergence",
                      labels = c("success", "failure")) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 p2_gpc_nolog <- ggplot(complete_gpc_nolog, aes(Re, alpha, color = 
                                                  is.nan(CL))) + 
-  geom_point(position = position_jitter()) +
+  geom_point() +
   scale_color_manual(values = c("black", "red"), name = "Convergence",
                      labels = c("success", "failure")) +
   theme_minimal() + 
@@ -52,9 +104,10 @@ p2_gpc_nolog <- ggplot(complete_gpc_nolog, aes(Re, alpha, color =
 p1_gpc_nolog + p2_gpc_nolog + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 ```
-CL/CD results: 
 
-```{r gpc_nolog_plots, warning=FALSE, echo=FALSE}
+$CL/CD$ results: 
+
+```{r gpc_nolog_plots-bad, warning=FALSE, echo=FALSE}
 (ggplot(complete_gpc_nolog, aes(camber, CLCD)) + 
   geom_point() + theme_bw())/ 
 (ggplot(complete_gpc_nolog, aes(Re, CLCD)) + 
@@ -65,13 +118,13 @@ CL/CD results:
 
 ### gPC with log-transformed Re range
 
-Loading results for log-transformed Re study: 
+Loading results for log-transformed $Re$ study: 
 
-```{r load-gpc-log}
-params_gpc_log <- read.csv("./data/parameters/gPC_Params_LogRe.csv",
+```{r load-gpc-log-bad}
+params_gpc_log <- read.csv("./data/bad_parameters/gPC_Params_LogRe.csv",
                            header = FALSE)
 colnames(params_gpc_log) <- column_names
-gpc_log_results <- read.csv("./results/gPC_LogRe_results.csv")
+gpc_log_results <- read.csv("./results/bad_results/gPC_LogRe_results.csv")
 gpc_log_results <- gpc_log_results[order(gpc_log_results$sim),]
 gpc_log_results$CLCD <- gpc_log_results$CL/gpc_log_results$CD
 complete_gpc_log <- cbind(params_gpc_log, gpc_log_results)
@@ -79,19 +132,19 @@ complete_gpc_log <- cbind(params_gpc_log, gpc_log_results)
 
 Convergence rate: `r 100-round(sum(is.nan(complete_gpc_log$CL))/nrow(complete_gpc_log)*100,digits = 0)`%.
 
-Plotting parameters for GPC (Re log) showing where simulations did not converge:
+Plotting parameters for gPC ($Re$ log) showing where simulations did not converge:
 
-```{r gpc-log-params, echo=FALSE, warning=FALSE}
+```{r gpc-log-params-bad, echo=FALSE, warning=FALSE}
 p1_gpc_log <- ggplot(complete_gpc_log, aes(Re, camber, color = 
                                                  is.nan(CL))) + 
-  geom_point(position = position_jitter()) +
+  geom_point() +
   scale_color_manual(values = c("black", "red"), name = "Convergence",
                      labels = c("success", "failure")) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 p2_gpc_log <- ggplot(complete_gpc_log, aes(Re, alpha, color = 
                                                  is.nan(CL))) + 
-  geom_point(position = position_jitter()) +
+  geom_point() +
   scale_color_manual(values = c("black", "red"), name = "Convergence",
                      labels = c("success", "failure")) +
   theme_minimal() + 
@@ -101,9 +154,9 @@ p1_gpc_log + p2_gpc_log + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 ```
 
-CL/CD results:
+$CL/CD$ results:
 
-```{r gpc_log_plots, echo = FALSE, warning=FALSE}
+```{r gpc_log_plots-bad, echo = FALSE, warning=FALSE}
 (ggplot(complete_gpc_log, aes(camber, CLCD)) + 
   geom_point() + theme_bw())/ 
 (ggplot(complete_gpc_log, aes(Re, CLCD)) + 
@@ -112,17 +165,23 @@ CL/CD results:
   geom_point() + theme_bw()) 
 ```
 
-## NN studies
+The results show that there is an area of high $aoa$ and low $Re$ that resulted in many unconverged simulations (show in red). This will affect the final gPC surrogate because the values at these unconverged simulations is $NaN$. This is very problematic for the final conclusions. 
+
+Since the effect is relatively more severe because of the log-transformation, we are choosing to proceed with non-log transformed $Re$ range.
+
+## Neural Network studies
+
+Our third method involved training an artificial neural network (NN) to create a surrogate function that would cover the entire parameter space. To generate the data set to train this NN, we ran a set of simulations. Like the gPC space, we chose to run two sets: one set where the $Re$ range was log transformed and one set where it was not.
 
 ### NN with non-log transformed Re
 
+Loading data for NN study with non-log transformed $Re$:
 
-Loading data for NN study with non-log-transformed Re:
-```{r load-nn-nolog}
-params_nn_nolog <- read.csv("./data/parameters/NN_Params_noLogRe.csv", 
+```{r load-nn-nolog-bad}
+params_nn_nolog <- read.csv("./data/bad_parameters/NN_Params_noLogRe.csv", 
                           header = FALSE)
 colnames(params_nn_nolog) <- column_names
-nn_nolog_results <- read.csv("./results/NN_noLogRe_results.csv")
+nn_nolog_results <- read.csv("./results/bad_results/NN_noLogRe_results.csv")
 nn_nolog_results <- nn_nolog_results[order(nn_nolog_results$sim),]
 complete_nn_nolog <- cbind(params_nn_nolog, nn_nolog_results)
 complete_nn_nolog$CLCD <- complete_nn_nolog$CL/complete_nn_nolog$CD
@@ -130,9 +189,9 @@ complete_nn_nolog$CLCD <- complete_nn_nolog$CL/complete_nn_nolog$CD
 
 Convergence rate: `r 100-round(sum(is.nan(complete_nn_nolog$CL))/nrow(complete_nn_nolog)*100,digits = 0)`%.
 
-Plotting parameters for NN (Re no log) showing where simulations did not converge:
+Plotting parameters for NN ($Re$ no log) showing where simulations did not converge:
 
-```{r nn-nolog-params, echo=FALSE}
+```{r nn-nolog-params-bad, echo=FALSE}
 p1_nn_nolog <- ggplot(complete_nn_nolog, aes(Re, camber, color = is.nan(CL))) + 
   geom_point() +
   scale_color_manual(values = c("black", "red"), name = "Convergence",
@@ -150,9 +209,9 @@ p1_nn_nolog + p2_nn_nolog + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 ```
 
-CL/CD results:
+$CL/CD$ results:
 
-```{r nn-nolog-plots, echo=FALSE,warning=FALSE}
+```{r nn-nolog-plots-bad, echo=FALSE,warning=FALSE}
 (ggplot(complete_nn_nolog, aes(camber, CLCD)) + 
   geom_point() + theme_bw())/ 
 (ggplot(complete_nn_nolog, aes(Re, CLCD)) + 
@@ -161,9 +220,267 @@ CL/CD results:
   geom_point() + theme_bw()) 
 ```
 
-### NN with log-transformed Re range
 
-Loading data for NN study with log-transformed Re:
+### NN with log-transformed $Re$ range
+
+Loading data for NN study with log-transformed $Re$:
+
+```{r load-nn-log-bad}
+params_nn_log <- read.csv("./data/bad_parameters/NN_Params_LogRe.csv", 
+                          header = FALSE)
+colnames(params_nn_log) <- column_names
+nn_log_results <- read.csv("./results/bad_results/NN_LogRe_results.csv")
+nn_log_results <- nn_log_results[order(nn_log_results$sim),]
+complete_nn_log <- cbind(params_nn_log, nn_log_results)
+complete_nn_log$CLCD <- complete_nn_log$CL/complete_nn_log$CD
+```
+
+Convergence rate: `r 100-round(sum(is.nan(complete_nn_log$CL))/nrow(complete_nn_log)*100,digits = 0)`%.
+
+Plotting parameters for NN ($Re$ no log) showing where simulations did not converge:
+
+```{r nn-log-params-bad, echo=FALSE, warning=FALSE}
+p1_nn_log <- ggplot(complete_nn_log, aes(Re, camber, color = is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+p2_nn_log <- ggplot(complete_nn_log, aes(Re, alpha, color = is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+p1_nn_log + p2_nn_log + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+$CL/CD$ results:
+
+```{r nn-log-plots-bad, echo=FALSE,warning=FALSE}
+(ggplot(complete_nn_log, aes(camber, CLCD)) + 
+  geom_point() + theme_bw())/ 
+(ggplot(complete_nn_log, aes(Re, CLCD)) + 
+  geom_point() + theme_bw()) /
+(ggplot(complete_nn_log, aes(alpha, CLCD)) + 
+  geom_point() + theme_bw()) 
+```
+
+For the log-transformed $Re$ range, the convergence of simulations was particular bad, only `r 100-round(sum(is.nan(complete_nn_log$CL))/nrow(complete_nn_log)*100,digits = 0)`% ran successfully, leaving not many simulations with which we could train the NN. 
+
+## Assesssing the success of the original Reynolds number range
+
+
+# Visualizing Results from the Modified Reynolds-number range
+
+Due to the low convergence of the the original range of $Re$, we modified the range to be $1e6 < Re < 1e9$. We also used both log-transformed and non-log-transformed ranges. 
+
+## Grid Study with Original Parameter Ranges
+
+```{r load-grid-nolog}
+column_names <- c("Re", "alpha", "camber")
+params_grid_nolog <- read.csv("./data/parameters/grid_Params_noLogRe.csv", 
+                             header = FALSE)
+colnames(params_grid_nolog) <- column_names
+
+grid_nolog_results <- read.csv("./results/grid_noLogRe_results.csv")
+grid_nolog_results <- grid_nolog_results[order(grid_nolog_results$sim),]
+grid_nolog_results$CLCD <- grid_nolog_results$CL/grid_nolog_results$CD
+complete_grid_nolog <- cbind(params_grid_nolog, grid_nolog_results)
+```
+
+Convergence rate: `r 100-round(sum(is.nan(complete_grid_nolog$CL))/nrow(complete_grid_nolog)*100,digits = 0)`%.
+
+Plotting parameters for gPC ($Re$ no log) showing where simulations did not converge:
+
+```{r grid-nolog-params, warning=FALSE, echo=FALSE}
+p1_grid_nolog <- ggplot(complete_grid_nolog, aes(Re, camber, color = 
+                                                 is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+p2_grid_nolog <- ggplot(complete_grid_nolog, aes(Re, alpha, color = 
+                                                 is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+p1_grid_nolog + p2_grid_nolog + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+$CL/CD$ results: 
+
+```{r grid_nolog_plots, warning=FALSE, echo=FALSE}
+(ggplot(complete_grid_nolog, aes(camber, CLCD)) + 
+  geom_point() + theme_bw())/ 
+(ggplot(complete_grid_nolog, aes(Re, CLCD)) + 
+  geom_point() + theme_bw()) /
+(ggplot(complete_grid_nolog, aes(alpha, CLCD)) + 
+  geom_point() + theme_bw()) 
+```
+
+## gPC Studies with Modified Parameter Ranges
+
+These results reflect the modified gPC results study that includes a range of Reynolds number ($Re$) and angle of attack ($aoa$) that avoided the parameter-space area where there was a large number of unconverged simulations.
+
+### gPC with non-log transformed $Re$
+
+Loading results for gPC non-log transformed $Re$: 
+
+```{r load-gpc-nolog}
+column_names <- c("Re", "alpha", "camber")
+params_gpc_nolog <- read.csv("./data/parameters/gPC_Params_noLogRe.csv", 
+                             header = FALSE)
+colnames(params_gpc_nolog) <- column_names
+
+gpc_nolog_results <- read.csv("./results/gPC_noLogRe_results.csv")
+gpc_nolog_results <- gpc_nolog_results[order(gpc_nolog_results$sim),]
+gpc_nolog_results$CLCD <- gpc_nolog_results$CL/gpc_nolog_results$CD
+complete_gpc_nolog <- cbind(params_gpc_nolog, gpc_nolog_results)
+```
+
+Convergence rate: `r 100-round(sum(is.nan(complete_gpc_nolog$CL))/nrow(complete_gpc_nolog)*100,digits = 0)`%.
+
+Plotting parameters for gPC ($Re$ no log) showing where simulations did not converge:
+
+```{r gpc-nolog-params, warning=FALSE, echo=FALSE}
+p1_gpc_nolog <- ggplot(complete_gpc_nolog, aes(Re, camber, color = 
+                                                 is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+p2_gpc_nolog <- ggplot(complete_gpc_nolog, aes(Re, alpha, color = 
+                                                 is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+p1_gpc_nolog + p2_gpc_nolog + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+$CL/CD$ results: 
+
+```{r gpc_nolog_plots, warning=FALSE, echo=FALSE}
+(ggplot(complete_gpc_nolog, aes(camber, CLCD)) + 
+  geom_point() + theme_bw())/ 
+(ggplot(complete_gpc_nolog, aes(Re, CLCD)) + 
+  geom_point() + theme_bw()) /
+(ggplot(complete_gpc_nolog, aes(alpha, CLCD)) + 
+  geom_point() + theme_bw()) 
+```
+
+### gPC with log-transformed Re range
+
+Loading results for log-transformed $Re$ study: 
+
+```{r load-gpc-log}
+params_gpc_log <- read.csv("./data/parameters/gPC_Params_LogRe.csv",
+                           header = FALSE)
+colnames(params_gpc_log) <- column_names
+gpc_log_results <- read.csv("./results/gPC_LogRe_results.csv")
+gpc_log_results <- gpc_log_results[order(gpc_log_results$sim),]
+gpc_log_results$CLCD <- gpc_log_results$CL/gpc_log_results$CD
+complete_gpc_log <- cbind(params_gpc_log, gpc_log_results)
+```
+
+Convergence rate: `r 100-round(sum(is.nan(complete_gpc_log$CL))/nrow(complete_gpc_log)*100,digits = 0)`%.
+
+Plotting parameters for gPC ($Re$ log) showing where simulations did not converge:
+
+```{r gpc-log-params, echo=FALSE, warning=FALSE}
+p1_gpc_log <- ggplot(complete_gpc_log, aes(Re, camber, color = 
+                                                 is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+p2_gpc_log <- ggplot(complete_gpc_log, aes(Re, alpha, color = 
+                                                 is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+p1_gpc_log + p2_gpc_log + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+$CL/CD$ results:
+
+```{r gpc_log_plots, echo = FALSE, warning=FALSE}
+(ggplot(complete_gpc_log, aes(camber, CLCD)) + 
+  geom_point() + theme_bw())/ 
+(ggplot(complete_gpc_log, aes(Re, CLCD)) + 
+  geom_point() + theme_bw()) /
+(ggplot(complete_gpc_log, aes(alpha, CLCD)) + 
+  geom_point() + theme_bw()) 
+```
+
+### NN with non-log transformed Re
+
+Loading data for NN study with non-log transformed $Re$:
+
+```{r load-nn-nolog-bad}
+params_nn_nolog <- read.csv("./data/parameters/NN_Params_noLogRe.csv", 
+                          header = FALSE)
+colnames(params_nn_nolog) <- column_names
+nn_nolog_results <- read.csv("./results/NN_noLogRe_results.csv")
+nn_nolog_results <- nn_nolog_results[order(nn_nolog_results$sim),]
+complete_nn_nolog <- cbind(params_nn_nolog, nn_nolog_results)
+complete_nn_nolog$CLCD <- complete_nn_nolog$CL/complete_nn_nolog$CD
+```
+
+Convergence rate: `r 100-round(sum(is.nan(complete_nn_nolog$CL))/nrow(complete_nn_nolog)*100,digits = 0)`%.
+
+Plotting parameters for NN ($Re$ no log) showing where simulations did not converge:
+
+```{r nn-nolog-params-bad, echo=FALSE}
+p1_nn_nolog <- ggplot(complete_nn_nolog, aes(Re, camber, color = is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+p2_nn_nolog <- ggplot(complete_nn_nolog, aes(Re, alpha, color = is.nan(CL))) + 
+  geom_point() +
+  scale_color_manual(values = c("black", "red"), name = "Convergence",
+                     labels = c("success", "failure")) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+p1_nn_nolog + p2_nn_nolog + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+$CL/CD$ results:
+
+```{r nn-nolog-plots-bad, echo=FALSE,warning=FALSE}
+(ggplot(complete_nn_nolog, aes(camber, CLCD)) + 
+  geom_point() + theme_bw())/ 
+(ggplot(complete_nn_nolog, aes(Re, CLCD)) + 
+  geom_point() + theme_bw()) /
+(ggplot(complete_nn_nolog, aes(alpha, CLCD)) + 
+  geom_point() + theme_bw()) 
+```
+
+
+### NN with log-transformed $Re$ range
+
+Loading data for NN study with log-transformed $Re$:
 
 ```{r load-nn-log}
 params_nn_log <- read.csv("./data/parameters/NN_Params_LogRe.csv", 
@@ -177,7 +494,7 @@ complete_nn_log$CLCD <- complete_nn_log$CL/complete_nn_log$CD
 
 Convergence rate: `r 100-round(sum(is.nan(complete_nn_log$CL))/nrow(complete_nn_log)*100,digits = 0)`%.
 
-Plotting parameters for NN (Re no log) showing where simulations did not converge:
+Plotting parameters for NN ($Re$ no log) showing where simulations did not converge:
 
 ```{r nn-log-params, echo=FALSE, warning=FALSE}
 p1_nn_log <- ggplot(complete_nn_log, aes(Re, camber, color = is.nan(CL))) + 
@@ -197,7 +514,7 @@ p1_nn_log + p2_nn_log + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 ```
 
-CL/CD results:
+$CL/CD$ results:
 
 ```{r nn-log-plots, echo=FALSE,warning=FALSE}
 (ggplot(complete_nn_log, aes(camber, CLCD)) + 
