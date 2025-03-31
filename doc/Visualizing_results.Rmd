@@ -434,7 +434,7 @@ $CL/CD$ results:
 
 Loading data for NN study with non-log transformed $Re$:
 
-```{r load-nn-nolog-bad}
+```{r load-nn-nolog}
 params_nn_nolog <- read.csv("./data/parameters/NN_Params_noLogRe.csv", 
                           header = FALSE)
 colnames(params_nn_nolog) <- column_names
@@ -448,7 +448,7 @@ Convergence rate: `r 100-round(sum(is.nan(complete_nn_nolog$CL))/nrow(complete_n
 
 Plotting parameters for NN ($Re$ no log) showing where simulations did not converge:
 
-```{r nn-nolog-params-bad, echo=FALSE}
+```{r nn-nolog-params, echo=FALSE}
 p1_nn_nolog <- ggplot(complete_nn_nolog, aes(Re, camber, color = is.nan(CL))) + 
   geom_point() +
   scale_color_manual(values = c("black", "red"), name = "Convergence",
@@ -468,7 +468,7 @@ p1_nn_nolog + p2_nn_nolog + plot_layout(guides = "collect") &
 
 $CL/CD$ results:
 
-```{r nn-nolog-plots-bad, echo=FALSE,warning=FALSE}
+```{r nn-nolog-plots, echo=FALSE,warning=FALSE}
 (ggplot(complete_nn_nolog, aes(camber, CLCD)) + 
   geom_point() + theme_bw())/ 
 (ggplot(complete_nn_nolog, aes(Re, CLCD)) + 

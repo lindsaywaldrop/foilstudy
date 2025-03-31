@@ -6,7 +6,7 @@ output:
 
 # Foil Study -- Creating Cambers
 
-This notebook will guide you through creating the necessary airfoils to run the foil study. It uses the R scripts found in ./src/r-scripts and the parameter list of cambers in ./data/camber_list.csv to alter the airfoil ./data/AS6091.csv to produce airfoils with different cambers, the output will be located in ./data/. 
+This notebook will guide you through creating the necessary airfoils to run the foil study. It uses the R scripts found in `./src/r-scripts` and the parameter list of cambers in `./data/camber_list.csv` to alter the airfoil `./data/AS6091.csv` to produce airfoils with different cambers, the output will be located in `./data/`. 
 
 Please ensure that the notebook is being knitted through the project directory: select the drop down arrow next to "Preview" and then "Knit Directory" and "Project Directory."
 
@@ -53,8 +53,6 @@ Create new foil based on midline and thicknesses:
 new_foil <- create_new_foil(new_midline, plot = TRUE)
 ```
 
-**There is some issue with the foil points near the tail are crossing over each other, which is pissing off XFOIL. Go back and fix this.
-
 Check new camber against specified value:
 
 ```{r}
@@ -72,6 +70,11 @@ write.table(new_foil, file = "./data/airfoils/ASnew.dat", row.names = F, col.nam
 ### Produce all airfoil files
 
 Please run the following script: 
+
 ```{r}
 #source("./src/r-scripts/calculate_cambers.R", echo = F)
 ```
+
+### Next steps...
+
+Now that all the airfoils have been created, you can move on to generating gPC/NN parameter spaces!
