@@ -77,4 +77,4 @@ Please run the following script:
 
 ### Next steps...
 
-Now that all the airfoils have been created, you can move on to generating gPC/NN parameter spaces!
+Now that all the airfoils have been created, you can move on to running simulations in Matlab XFOIL! 
