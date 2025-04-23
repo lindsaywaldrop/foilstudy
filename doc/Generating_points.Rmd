@@ -266,7 +266,11 @@ write.table(signif(final_set, digits = 5), file = paste0("./data/parameters/gPC_
               row.names = F, col.names = F, sep = ",")
 ```
 
+## Producing the Neural Network parameter space
 
+At this time, the neural network is only available in MATLAB. Please see the MATLAB live script `./doc/Generating_points_Matlab.mlx` for a functioning NN point generation. 
+
+We will implement this in R soon!
 
 ## Next Steps... 
 
