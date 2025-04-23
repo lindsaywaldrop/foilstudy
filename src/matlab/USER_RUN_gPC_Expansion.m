@@ -14,7 +14,7 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function USER_RUN_gPC_Expansion()
+function [param_combo_full, param_combo] = USER_RUN_gPC_Expansion()
 
 
 %-------------------------------------------------------
@@ -48,14 +48,14 @@ poly_roots = Legendre_Roots(p+1);
 %-------------------------------------------------------
 % FIND COMBINATIONS OF ALL COLLOCATIONS PTS
 %-------------------------------------------------------
-param_combo = compute_All_Collo_PT_Combinations(N,poly_roots);
+param_combo_full = compute_All_Collo_PT_Combinations(N,poly_roots);
 
 
 %------------------------------------------------------------
 % GET SUBSET OF ALL PARAMETER COMBINATIONS FOR LEAST SQUARES
 %------------------------------------------------------------
 N_subset = 1*(N-1)*cap_P;
-param_combo = sample_Parameter_Combinations(N_subset,param_combo);
+param_combo = sample_Parameter_Combinations(N_subset,param_combo_full);
 
 
 %------------------------------------------------------------

@@ -1,5 +1,5 @@
 ---
-title: "Generating parameter spaces using gPC expansion"
+title: "Generating parameter spaces using R"
 output:
   html_notebook: default
   html_document:
@@ -14,9 +14,67 @@ library(ggplot2)
 library(patchwork)
 ```
 
-Based on Nick Battista's MATLAB code. 
+## Parameters of interest and their ranges 
 
-### Producing gPC parameter space
+In this study, we examine the output of coefficients of lift and drag on airfoils as a response to changes in the Reynolds number, angle of attack, and airfoil camber. We use the following parameter ranges to establish our parameter sampling spaces: 
+
+ * Reynolds number: 1e6 to 1e9
+ * Angle of Attack: 0 to 15
+ * Camber: 0.005 to 0.20 
+
+```{r}
+Re_range <- c(1e6, 1e9)
+aoa_range <- c(0, 15)
+camber_range <- c(0.005, 0.20)
+```
+
+We use three methods for generating parameter sampling spaces: __grid sampling__, __generalized polynomial chaos__, and __neural network sampling__. Each of these are generated in the following sections of this code document and can also be found in the MATLAB script `./doc/Generating_points.MATLAB.mlx`. Output from this code will be csv files located in `./data/parameters/`.
+
+## Producing the grid sampled parameter space
+
+This is equivalent code to the grid sampling in the MATLAB script `./doc/Generating_points.MATLAB.mlx`, here reproduced in R. 
+
+Since all methods use the same number of simulations, the uniform spacing of our grid will need to be divided by the steps of the cubic root of 343: 
+
+```{r}
+steps <- nthroot(343, 3)
+grid_spacing_Re <- (Re_range[2] - Re_range[1])/(steps - 1)
+grid_spacing_aoa <- (aoa_range[2] - aoa_range[1])/(steps - 1)
+grid_spacing_camber <- (camber_range[2] - camber_range[1])/(steps - 1)
+```
+
+Create a vector of the individual values that will be run for each parameter:
+
+```{r}
+re_vec <- seq(Re_range[1], Re_range[2], by = grid_spacing_Re)
+aoa_vec <- seq(aoa_range[1], aoa_range[2], by = grid_spacing_aoa)
+camber_vec <- seq(camber_range[1], camber_range[2], by = grid_spacing_camber)
+```
+
+Extend all parameters to create a full parameter combination set using `mesh()` from the plot3D package. (It's not recommended to load the plot3D library unless you want XQuartz or similar plot device open in your RStudio session.) 
+
+```{r}
+grid_3d <- plot3D::mesh(re_vec, aoa_vec, camber_vec)
+```
+
+Reshape each individual parameter array into a 1D vector, then combine them into a 343 x 3 data frame:
+
+```{r}
+params_grid <- data.frame("Re" = as.vector(grid_3d[[1]]),
+                          "aoa" = as.vector(grid_3d[[2]]), 
+                          "camber" = as.vector(grid_3d[[3]]))
+```
+
+Save the resulting data frame:
+
+```{r}
+write.table(signif(params_grid, digits = 5), file = paste0("./data/parameters/grid_Params_noLogRe.csv"), 
+              row.names = F, col.names = F, sep = ",")
+```
+
+## Producing gPC parameter space
+
+This work is a validated translation of Nick Battista's MATLAB code into R. This section steps through the entire process found in `./src/matlab/USER_RUN_gPC_Expansion.m` that is called as a function in the MATLAB live script `./doc/Generating_points_MATLAB.mlx` in R. 
 
 Load custom functions: 
 
@@ -63,8 +121,9 @@ n_subset <- 1 * (n - 1) * cap_p
 param_combo_subset <- sample_parameter_combos(n_subset, param_combo, test_flag)
 ```
 
+You can use either the full set `param_combo` or the smaller subset `param_combo_subset` for running your full simulations. Here, we use the full set. 
 
-#### Evaluate and test parameter combinations
+### Evaluate and test parameter combinations
 
 Multivariable Legendre polynomial ordering:
 
@@ -166,19 +225,12 @@ print(round(sobols[["s123"]][1], digits = 4))
 print("~*~._.~*~ Total-order Sobol indices ~*~._.~*~")
 print(paste0("sT", 1:3, ": ", round(sobols[["s_total"]], digits = 4)))
 ```
-## Modify gPC parameter combinations to fit chose parameter ranges
 
-Once the gPC parameter combinations are generated, you can re-scale the range of each parameter range to fit your particular parameter range of interest. Below is a demonstration of how to accomplish this for the foil study with the ranges: 
+### Modify gPC parameter combinations to fit chose parameter ranges
 
- * Reynolds number: 1e6 to 1e9
- * Angle of Attack: 0 to 15
- * Camber: 0.005 to 0.20 
- 
+Once the gPC parameter combinations are generated, you can re-scale the range of each parameter range to fit your particular parameter range of interest. Below is a demonstration of how to accomplish this for the foil study with the ranges defined above: 
+
 ```{r}
-Re_range <- c(1e6, 1e9)
-aoa_range <- c(0, 15)
-camber_range <- c(0.005, 0.20)
-
 final_set <- data.frame("Re" = rep(NA, nrow(param_combo)), 
                         "aoa" = rep(NA, nrow(param_combo)),
                         "camber" = rep(NA, nrow(param_combo)))
@@ -214,7 +266,9 @@ write.table(signif(final_set, digits = 5), file = paste0("./data/parameters/gPC_
               row.names = F, col.names = F, sep = ",")
 ```
 
-### Next Steps... 
+
+
+## Next Steps... 
 
 The next step is to run the `Creating_cambers.Rmd` in RStudio to generate the airfoil files. 
 
