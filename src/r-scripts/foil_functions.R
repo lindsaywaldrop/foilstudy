@@ -52,12 +52,8 @@ find_midline <- function(x, y, smoothed = TRUE, plot = TRUE){
   for(i in 1:(npts/2)){
     thickness_top_x[i] <- x[i] - foil_midline_x[i]
     thickness_top_y[i] <- y[i] - foil_midline_y[i]
-    #print(i)
-    thickness_bot_x[i] <- foil_midline_x[i] - 
-                            x[(npts + 1) - i]
-    thickness_bot_y[i] <- foil_midline_y[i] - 
-                            y[(npts + 1) - i]
-    #print((npts + 1) - i)
+    thickness_bot_x[i] <- foil_midline_x[i] - x[(npts + 1) - i]
+    thickness_bot_y[i] <- foil_midline_y[i] - y[(npts + 1) - i]
   } 
   if(smoothed) {
     loess_sm <- loess(foil_midline_y ~ foil_midline_x, span = 0.5, parametric = "span")

@@ -1,5 +1,5 @@
 ---
-title: "R Notebook for gPC expansion"
+title: "Generating parameter spaces using gPC expansion"
 output:
   html_document:
     df_print: paged
@@ -16,6 +16,8 @@ library(patchwork)
 
 Based on Nick Battista's MATLAB code. 
 
+### Producing gPC parameter space
+
 Load custom functions: 
 
 ```{r}
@@ -25,11 +27,16 @@ source("./src/r-scripts/gpc_user_specified_model.R")
 
 Initial parameters: 
 
+ - `test_flag` will test the results against expected values produced by the code in MATLAB.`TRUE` should be displayed in the output of each code chunk (at least once) if testing is successful. If you wish to intrinsically validate this code, use `1` to test, otherwise `0` will turn testing off. 
+
 ```{r initial-parameters}
-test_flag <- 1
+test_flag <- 0
 ```
 
 Set gPC parameters:
+
+ - `n`: the number of parameters in your data set. 
+ - `p`: the order of polynomial you wish to use. Using lower values of `p` may not capture non-linear aspects of the performance space, but will require fewer full simulations. Higher `p` will require more simulations.
 
 ```{r set-gpc-parameters}
 n <- 3
@@ -56,7 +63,10 @@ n_subset <- 1 * (n - 1) * cap_p
 param_combo_subset <- sample_parameter_combos(n_subset, param_combo, test_flag)
 ```
 
-Multivaribale Lengendre polynomial ordering:
+
+#### Evaluate and test parameter combinations
+
+Multivariable Legendre polynomial ordering:
 
 ```{r}
 alpha_mat <- create_polynomial_ordering(n, p, test_flag)
@@ -156,3 +166,5 @@ print(round(sobols[["s123"]][1], digits = 4))
 print("~*~._.~*~ Total-order Sobol indices ~*~._.~*~")
 print(paste0("sT", 1:3, ": ", round(sobols[["s_total"]], digits = 4)))
 ```
+## Modify gPC parameter combinations to fit chose parameter ranges
+
