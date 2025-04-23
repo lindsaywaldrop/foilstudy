@@ -1,9 +1,9 @@
 ---
 title: "Generating parameter spaces using gPC expansion"
 output:
+  html_notebook: default
   html_document:
     df_print: paged
-  html_notebook: default
   pdf_document: default
 ---
 
@@ -167,4 +167,54 @@ print("~*~._.~*~ Total-order Sobol indices ~*~._.~*~")
 print(paste0("sT", 1:3, ": ", round(sobols[["s_total"]], digits = 4)))
 ```
 ## Modify gPC parameter combinations to fit chose parameter ranges
+
+Once the gPC parameter combinations are generated, you can re-scale the range of each parameter range to fit your particular parameter range of interest. Below is a demonstration of how to accomplish this for the foil study with the ranges: 
+
+ * Reynolds number: 1e6 to 1e9
+ * Angle of Attack: 0 to 15
+ * Camber: 0.005 to 0.20 
+ 
+```{r}
+Re_range <- c(1e6, 1e9)
+aoa_range <- c(0, 15)
+camber_range <- c(0.005, 0.20)
+
+final_set <- data.frame("Re" = rep(NA, nrow(param_combo)), 
+                        "aoa" = rep(NA, nrow(param_combo)),
+                        "camber" = rep(NA, nrow(param_combo)))
+```
+ 
+Transform `aoa` and `camber`: 
+
+```{r}
+final_set$aoa <- ((param_combo[,2] + 1)/2)*max(aoa_range)
+final_set$camber <-  (((param_combo[,3] + 1)/2))*(max(camber_range)  - min(camber_range)) + min(camber_range)
+```
+
+Note that the Reynolds number has to options for gPC and NN: a log-transformed range and a non-log transformed range. This is to accommodate the very large range of numbers (three orders of magnitude). 
+
+Transform the first column of the param_combo to fit the Re range for non-log and log transformed: 
+
+```{r}
+Re_nolog <- (((param_combo[,1] + 1)/2))*(max(Re_range)  - min(Re_range)) + min(Re_range)
+Re_log <- (((param_combo[,1] + 1)/2))*(log10(max(Re_range))  - log10(min(Re_range))) + log10(min(Re_range))
+Re_log <- 10^(Re_log)
+```
+
+Now set the Re preference and save the resulting data frames: 
+
+```{r}
+# Log transformed set
+final_set$Re <- Re_log
+write.table(signif(final_set, digits = 5), file = paste0("./data/parameters/gPC_Params_LogRe.csv"), 
+              row.names = F, col.names = F, sep = ",")
+# Non-log transformed set
+final_set$Re <- Re_nolog
+write.table(signif(final_set, digits = 5), file = paste0("./data/parameters/gPC_Params_noLogRe.csv"), 
+              row.names = F, col.names = F, sep = ",")
+```
+
+### Next Steps... 
+
+The next step is to run the `Creating_cambers.Rmd` in RStudio to generate the airfoil files. 
 

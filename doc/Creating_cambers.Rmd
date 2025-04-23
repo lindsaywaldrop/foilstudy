@@ -8,7 +8,7 @@ output:
 
 This notebook will guide you through creating the necessary airfoils to run the foil study. It uses the R scripts found in `./src/r-scripts` and the parameter list of cambers in `./data/camber_list.csv` to alter the airfoil `./data/AS6091.csv` to produce airfoils with different cambers, the output will be located in `./data/`. 
 
-Please ensure that the notebook is being knitted through the project directory: select the drop down arrow next to "Preview" and then "Knit Directory" and "Project Directory."
+Please ensure that the notebook is being knitted through the project directory: select the drop down arrow next to "Preview" and then "Knit Directory" and select "Project Directory."
 
 ```{r}
 # functions
@@ -69,7 +69,7 @@ write.table(new_foil, file = "./data/airfoils/ASnew.dat", row.names = F, col.nam
 
 ### Produce all airfoil files
 
-Please run the following script: 
+Please source the `calculate_cambers.R` script located in the `./src` folder. The following line can do so if it is uncommented:
 
 ```{r}
 #source("./src/r-scripts/calculate_cambers.R", echo = F)
@@ -77,4 +77,4 @@ Please run the following script:
 
 ### Next steps...
 
-Now that all the airfoils have been created, you can move on to running simulations in Matlab XFOIL! 
+Now that all the airfoils have been created, you can move on to running simulations in MATLAB XFOIL! 
