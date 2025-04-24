@@ -10,7 +10,7 @@ are listed although other versions may also work.
 
  - R version 4.4.1 (2024-06-14)
  - RStudio Version 2024.09.0+375
- - R Packages (available on CRAN): `pracma`, `ggplot2`, `patchwork`, `spacefillr`, `plot3D`
+ - R Packages (available on CRAN): `pracma`, `ggplot2`, `patchwork`, `spacefillr`
 
 Note that the repository contains the results from the MATLAB simulations, so MATLAB is not required 
 to generate surrogates or performance-space analyses. However, if you wish to reproduce the simulations 
@@ -27,7 +27,7 @@ Please follow the steps below to reproduce the analyses. Note that several steps
  1. Clone the github repository or download the release and unarchive the code. If running in RStudio, open the `foilstudy.Rproj` in RStudio. 
  2. Generate the parameter spaces using grid sampling, gPC sampling, and neural network sampling.
     * MATLAB: open and run all lines `./doc/Generating_points_MATLAB.mlx` in MATLAB. 
-    * R: open and run all lines `./doc/Generating_points.Rmd` in RStudio. 
+    * R: open and run all lines `./doc/Generating_points.Rmd` in RStudio. (Note: NN sampling is not yet implemented in R!)
  3. Generate the airfoil files required to run in XFOIL. 
     * MATLAB: Open the `./doc/Creating_cambers_MATLAB.mlx` in MATLAB and run all lines.
     * R: Open the `./doc/Creating_cambers.Rmd` file in RStudio and run all lines, including the last code chunk which requires that a line be uncommented.  
