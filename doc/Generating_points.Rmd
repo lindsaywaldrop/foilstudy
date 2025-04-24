@@ -51,10 +51,10 @@ aoa_vec <- seq(aoa_range[1], aoa_range[2], by = grid_spacing_aoa)
 camber_vec <- seq(camber_range[1], camber_range[2], by = grid_spacing_camber)
 ```
 
-Extend all parameters to create a full parameter combination set using `mesh()` from the plot3D package. (It's not recommended to load the plot3D library unless you want XQuartz or similar plot device open in your RStudio session.) 
+Extend all parameters to create a full parameter combination set:
 
 ```{r}
-grid_3d <- plot3D::mesh(re_vec, aoa_vec, camber_vec)
+grid_3d <- mesh_array(re_vec, aoa_vec, camber_vec)
 ```
 
 Reshape each individual parameter array into a 1D vector, then combine them into a 343 x 3 data frame:
