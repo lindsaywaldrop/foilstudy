@@ -107,7 +107,6 @@ else
     bEnd = coeff*( 2*rand( Noutput, 1 )-1 );
 
 end
-%
 
 %-------------------------------------------------------------
 % INITIALIZE GRADIENTS OF WEIGHT/BIAS MATRICES ---------------
@@ -221,8 +220,6 @@ for epochIter=1:numEpochs
     indsRandom = randperm(length(1:numTrain));  % Randomly shuffle training data indices for SGD
     costSum = 0;                                % Reset SINGLE Epoch cost to 0
     batch_size = batch_size_Save;               % Reset to original batch size
-
-    
     
     %----------------------------------------------------------------
     % Iteration Number Inside SINGLE EPOCH
@@ -410,8 +407,11 @@ for epochIter=1:numEpochs
         b2 = b2n;
         bEnd = bEndn;
 
+        
+
     end
     
+   
     %----------------------------------------------------------------
     %            Save COST for SINGLE Epoch (TRAINING)
     %----------------------------------------------------------------
@@ -453,7 +453,9 @@ for epochIter=1:numEpochs
         fprintf('Cost (Train) = %.8f\n', J_Train );
         fprintf('Cost  (Test) = %.8f\n\n',J_Test  );
         %pause(7);
+
     end
+    
     
 end
 

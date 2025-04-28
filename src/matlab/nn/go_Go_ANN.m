@@ -53,6 +53,7 @@ NTest = 500;     % How many testing samples
 epsError = 0;    % How much epsilon percent error to add on average 
 %
 [TRAINING_DATA,TRAIN_OUTPUT,TESTING_DATA,TEST_OUTPUT,minZ,maxZ] = get_Training_and_Test_Data(numInputs,NTrain,NTest,epsError);
+
 %
 size(TRAINING_DATA)
 size(TRAIN_OUTPUT)
@@ -77,7 +78,7 @@ fprintf('      --> all data in [0,1]\n');
 %--------------------------------------------------------------------------
 %        Save TRAINING and TEST Data (saves output in log form )
 %--------------------------------------------------------------------------
-strMAT = ['Training_and_Test_Data_eps' num2str(epsError) '.mat'];
+strMAT = ['../src/matlab/nn/Training_and_Test_Data_eps' num2str(epsError) '.mat'];
 save(strMAT,'TRAINING_DATA','TESTING_DATA');
 
 
@@ -116,6 +117,7 @@ hyper_param_vec = [num_hidden_layer_neurons, learning_rate, momentum,...
 
 
 
+
 %--------------------------------------------------------------------------
 %                   Train the ARTIFICIAL NEURAL NETWORK
 %       
@@ -125,8 +127,6 @@ hyper_param_vec = [num_hidden_layer_neurons, learning_rate, momentum,...
 %--------------------------------------------------------------------------
 fprintf('\n--> Starting ANN Training...\n');
 [W1,W2,WEnd,b1,b2,bEnd,costVec,min_Cost] = Train_Artificial_Neural_Network(TRAINING_DATA_SCALED,TESTING_DATA_SCALED,hyper_param_vec);
-
-
 
 %---------------------------------------------------
 % Plot the COST/LOSS function vs. ITERATION NUMBER
@@ -149,7 +149,7 @@ set(gca,'FontSize',fs);
 %
 %-----------------------------------------------------------
 currDir = pwd;
-dirSave = 'Trained_Neural_Network_Weights';
+dirSave = '../src/matlab/nn/Trained_Neural_Network_Weights';
 mkdir(dirSave);
 cd(dirSave);
 %

@@ -1,26 +1,38 @@
 # NN generating points 
 # Custom functions required for generating points using the neural network method
 
-get_training_and_test_data <- function(num_inputs, n_train, n_test, eps_error, sobol_seed){
+get_training_and_test_data <- function(num_inputs, n_train, n_test, eps_error, sobol_seed, 
+                                       testing = FALSE){
   ## Get Training and Testing Data for Neural Network
   
-  # TRAINING DATA: Setting Up TRAINING SAMPLES
-  
-  ## SOBOL SEQUENCE:
-  #   get Sobol' sequence in [0,1]^N
-  #   scale Sobol' sequence to [-1,1]^N
-  
-  # Package: spacefillr
-  training_data <- spacefillr::generate_sobol_set(n_train, num_inputs, seed = sobol_seed)
-  
-  # Find TEST Data Combinations
-  set.seed(sobol_seed)
-  test_data <- matrix(runif(n_test*num_inputs), nrow = n_test, ncol = num_inputs)
+  if(testing){
+    training_data <- as.matrix(read.csv("./test/nn_matlab/Matlab_training_preeval.csv", header = F))
+    test_data <- as.matrix(read.csv("./test/nn_matlab/Matlab_testing_preeval.csv", header = F))
+  } else{
+    # TRAINING DATA: Setting Up TRAINING SAMPLES
+    ## SOBOL SEQUENCE:
+    #   get Sobol' sequence in [0,1]^N
+    # Package: spacefillr
+    training_data <- spacefillr::generate_sobol_set(n_train, num_inputs, seed = sobol_seed)
+    #   get Sobol' sequence in [-1,1]^N
+    # training_data <- 2*spacefillr::generate_sobol_set(n_train, num_inputs, seed = sobol_seed) - 1
+    
+    # Find TEST Data Combinations
+    set.seed(sobol_seed)
+    test_data <- matrix(runif(n_test*num_inputs), nrow = n_test, ncol = num_inputs)
+  }
   
   # Evaluate specified function (to get output values for training and testing data)
   flag_scale_output <- F
   train_output <- evaluate_function(training_data, eps_error, flag_scale_output, 0, 0)
   test_output <- evaluate_function(test_data, eps_error, flag_scale_output, 0, 0)
+  
+  if(testing){
+    train_output_matlab <- as.matrix(read.csv("./test/nn_matlab/Matlab_training_output.csv", header = F))
+    test_output_matlab <- as.matrix(read.csv("./test/nn_matlab/Matlab_testing_output.csv", header = F))
+    all.equal(train_output, train_output_matlab[,1])
+    all.equal(test_output, test_output_matlab[,1])
+  }
   
   # Scale output data to [0, 1]
   flag_get_minmax <- T
@@ -31,6 +43,15 @@ get_training_and_test_data <- function(num_inputs, n_train, n_test, eps_error, s
     b <- -m*min_z
     train_output <- m * train_output + b
     test_output <- m * test_output + b
+    
+    if(testing){
+      train_output_matlab <- as.matrix(read.csv("./test/nn_matlab/Matlab_training_output_scaled.csv", 
+                                                header = F))
+      test_output_matlab <- as.matrix(read.csv("./test/nn_matlab/Matlab_testing_output_scaled.csv", 
+                                               header = F))
+      all.equal(train_output, train_output_matlab[,1])
+      all.equal(test_output, test_output_matlab[,1])
+    }
   }
   return(list("training_data" = training_data, 
               "train_output" = train_output, 
@@ -52,9 +73,9 @@ evaluate_function <- function(dat, eps_error, flag_scale_output, min_z, max_z){
     x2 <- dat[i, 2]
     x3 <- dat[i, 3]
     
-    f1 <- (1 - x2^2) * cos(2 * 2*pi*x1)
-    f2 <- 0.5 * sin(2 * 2*pi*x2)
-    f3 <- 2*x3 + 0.2
+    f1 <- (1 - x2^2) * cos(2 * (2*pi*x1))
+    f2 <- 0.5 * sin(2 * (2*pi*x2))
+    f3 <- (2*x3) + 0.2
     
     f_val = f1 + f2 + f3 + 2;
     
@@ -70,7 +91,8 @@ evaluate_function <- function(dat, eps_error, flag_scale_output, min_z, max_z){
   return(f_mat)
 }
 
-train_artificial_neural_network <- function(training_data, testing_data_scaled, hyper_param_list){
+train_artificial_neural_network <- function(training_data, testing_data, hyper_param_list, 
+                                            testing = FALSE){
   ## TRAINS an artificial neural network with 2 hidden layers
   flag_use_stored_weights <- F
   if(flag_use_stored_weights){
@@ -85,8 +107,8 @@ train_artificial_neural_network <- function(training_data, testing_data_scaled, 
   
   num_input_neurons <- hyper_param_list$num_inputs
   train_data_size <- ncol(x0)
-  x0_test <- t(testing_data_scaled[,1:hyper_param_list$num_inputs])
-  z0_test <- t(testing_data_scaled[,(hyper_param_list$num_inputs+1):ncol(training_data)])
+  x0_test <- t(testing_data[,1:hyper_param_list$num_inputs])
+  z0_test <- t(testing_data[,(hyper_param_list$num_inputs+1):ncol(training_data)])
   
   # Rule of thumb for # OF HIDDEN LAYER NEURONS (Hidden Layer Size)
   n_input <- num_input_neurons  # number of input neurons
@@ -104,17 +126,27 @@ train_artificial_neural_network <- function(training_data, testing_data_scaled, 
     
   }else{
     
-    # Initialize weights/biases randomly
-    coeff <- 1/sqrt(num_train)
-    w1 <- coeff*(2 * matrix(runif(num_hid_layer_neurons*num_input_neurons), 
-                            nrow = num_hid_layer_neurons, ncol = num_input_neurons) - 1)
-    w2 <- coeff*(2 * matrix(runif(num_hid_layer_neurons*num_hid_layer_neurons), 
-                            nrow = num_hid_layer_neurons, ncol = num_hid_layer_neurons) - 1)
-    wend <- coeff*(2 * matrix(runif(n_output*num_hid_layer_neurons), 
-                              nrow = n_output, ncol = num_hid_layer_neurons) - 1)
-    b1 <- coeff*(2 * matrix(runif(num_hid_layer_neurons), nrow = num_hid_layer_neurons) - 1)
-    b2 <- coeff*(2 * matrix(runif(num_hid_layer_neurons), nrow = num_hid_layer_neurons) - 1)
-    bend <- coeff*(2 * matrix(runif(n_output), nrow = n_output) - 1)
+    if(testing){
+      w1 <- as.matrix(read.csv("./test/nn_matlab/Matlab_w1.csv", header = F))
+      w2 <- as.matrix(read.csv("./test/nn_matlab/Matlab_w2.csv", header = F))
+      wend <- as.matrix(read.csv("./test/nn_matlab/Matlab_wend.csv", header = F))
+      b1 <- as.matrix(read.csv("./test/nn_matlab/Matlab_b1.csv", header = F))
+      b2 <- as.matrix(read.csv("./test/nn_matlab/Matlab_b2.csv", header = F))
+      bend <- as.matrix(read.csv("./test/nn_matlab/Matlab_bend.csv", header = F))
+    }else{
+      # Initialize weights/biases randomly
+      coeff <- 1/sqrt(num_train)
+      w1 <- coeff*(2 * matrix(runif(num_hid_layer_neurons*num_input_neurons), 
+                              nrow = num_hid_layer_neurons, ncol = num_input_neurons) - 1)
+      w2 <- coeff*(2 * matrix(runif(num_hid_layer_neurons*num_hid_layer_neurons), 
+                              nrow = num_hid_layer_neurons, ncol = num_hid_layer_neurons) - 1)
+      wend <- coeff*(2 * matrix(runif(n_output*num_hid_layer_neurons), 
+                                nrow = n_output, ncol = num_hid_layer_neurons) - 1)
+      b1 <- coeff*(2 * matrix(runif(num_hid_layer_neurons), nrow = num_hid_layer_neurons) - 1)
+      b2 <- coeff*(2 * matrix(runif(num_hid_layer_neurons), nrow = num_hid_layer_neurons) - 1)
+      bend <- coeff*(2 * matrix(runif(n_output), nrow = n_output) - 1)
+    }
+    
     
   }
   
@@ -179,13 +211,17 @@ train_artificial_neural_network <- function(training_data, testing_data_scaled, 
   }
   
   #### START TRAINING ####
-  num_epochs <- hyper_param_list$max_epochs   # max # of EPOCHS to TRAIN model
+  if(testing){
+    num_epochs <- 100
+  }else{
+    num_epochs <- hyper_param_list$max_epochs   # max # of EPOCHS to TRAIN model
+  }
   cost_vec <- rep(0, num_epochs)              # initialize vector storage for cost function
   cost_vec_test <- rep(0, num_epochs)         # initialize vector storage for cost function
   cost_vec_train <- rep(0, num_epochs)        # initialize vector storage for cost function
   # 
   for(epoch_iter in 1:num_epochs){
-    
+   
     # Pseudo-adaptive step size
     if(mod(epoch_iter, 251) == 0 & epoch_iter >= 200 & flag_adaptive_step_size == 1){
       lam_ct <- lam_ct + 1
@@ -207,13 +243,18 @@ train_artificial_neural_network <- function(training_data, testing_data_scaled, 
     lambda_bend <- min_lam
     
     # RANDOMLY SHUFFLE INDICES for MINI-BATCH RANDOM SAMPLING and RESET EPOCH PARAMETERS
-    inds_random <- randperm(length(1:num_train))    # Randomly shuffle training data indices for SGD
+    if(testing){
+      inds_random <- as.matrix(read.csv(paste0("./test/nn_matlab/Matlab_indsRandom_epoch_", 
+                                               epoch_iter, ".csv"), header = F))
+    }else{
+      inds_random <- randperm(length(1:num_train))    # Randomly shuffle training data indices for SGD
+    }
     cost_sum <- 0                                   # Reset single epoch cost to 0
     batch_size <- batch_size_save                   # Reset to original batch size
     
     # Iteration number inside single epoch
     for(iter in 1:floor(num_train/batch_size_save)){
-      
+      #iter <- 5
       # RANDOMLY SHUFFLE INDICES for MINI-BATCH RANDOM SAMPLING
       if(iter != floor(num_train/batch_size)){
         inds <- inds_random[(1 + (iter - 1)*batch_size):(batch_size*iter)]
@@ -338,6 +379,30 @@ train_artificial_neural_network <- function(training_data, testing_data_scaled, 
   
   print("Model Training done!!!")
   
+  if(testing){
+    print("Testing R training data against MATLAB after 100 epochs.")
+    test_results <- rep(NA, 7)
+    Matlab_w1 <- as.matrix(read.csv("./test/nn_matlab/Matlab_w1_epoch_100.csv", header=F))
+    test_results[1] <- all.equal(Matlab_w1, w1)
+    Matlab_w2 <- as.matrix(read.csv("./test/nn_matlab/Matlab_w2_epoch_100.csv", header=F))
+    test_results[2] <- all.equal(Matlab_w2, w2)
+    Matlab_wend <- as.matrix(read.csv("./test/nn_matlab/Matlab_wend_epoch_100.csv", header=F))
+    test_results[3] <- all.equal(Matlab_wend, wend)
+    
+    Matlab_b1 <- as.matrix(read.csv("./test/nn_matlab/Matlab_b1_epoch_100.csv", header=F))
+    test_results[4] <- all.equal(Matlab_b1, b1)
+    Matlab_b2 <- as.matrix(read.csv("./test/nn_matlab/Matlab_b2_epoch_100.csv", header=F))
+    test_results[5] <- all.equal(Matlab_b2, b2)
+    Matlab_bend <- as.matrix(read.csv("./test/nn_matlab/Matlab_bend_epoch_100.csv", header=F))
+    test_results[6] <- all.equal(Matlab_bend, bend)
+    
+    Matlab_costvec <- read.csv("./test/nn_matlab/Matlab_costvec.csv", header = F)
+    test_results[7] <- all.equal(as.vector(t(Matlab_costvec[1,])), cost_vec)
+    if(all(test_results)){
+      print("All tests report TRUE.")
+    }
+  }
+  
   completed_training <- list(
     "w1_save" = w1,
     "w2_save" = w2,
@@ -345,6 +410,9 @@ train_artificial_neural_network <- function(training_data, testing_data_scaled, 
     "b1_save" = b1,
     "b2_save" = b2,
     "bend_save" = bend,
+    "cost_vec" = cost_vec,
+    "cost_vec_test" = cost_vec_test,
+    "cost_vec_train" = cost_vec_train,
     "min_cost" = cost)
   
   return(completed_training)
@@ -414,4 +482,50 @@ save_trained_model_values <- function(trained_model){
                 row.names = F, col.names = F, sep = ",")
   }
   return(NULL)
+}
+
+print_error_information <- function(zdat, dat, report_option, num_inputs){
+  # compute errors
+  err_abs <- abs(zdat - dat[, (num_inputs + 1)])
+  err_rel <- (err_abs / dat[, (num_inputs + 1)]) * 100
+  inds <- is.infinite(err_rel)
+  err_rel[inds] <- NA
+  
+  # print error
+  print(paste0(" *** ", report_option," ERROR INFORMATION ***"))
+  print(" ")
+  print("Absolute Error: ")
+  print(paste0("Max ABS error: ", max(err_abs, na.rm = T)))
+  print(paste0("Min ABS error: ", min(err_abs, na.rm = T)))
+  print(paste0("Avg ABS error: ", mean(err_abs, na.rm = T)))
+  print(" ")
+  #
+  print("Relative Error: ")
+  print(paste0("Max ABS error: ", max(err_rel, na.rm = T)))
+  print(paste0("Min ABS error: ", min(err_rel, na.rm = T)))
+  print(paste0("Avg ABS error: ", mean(err_rel, na.rm = T)))
+  print(" ")
+}
+
+create_2D <- function(x_mesh, y_mesh, z_const, trained_model, train_test_output, 
+                      eps_error){
+  f_prediction <- matrix(NA, nrow = dim(x_mesh)[1], ncol = dim(x_mesh)[2])
+  f_real <- matrix(NA, nrow = dim(x_mesh)[1], ncol = dim(x_mesh)[2])
+  for(n1 in 1:nrow(z_prediction)){
+    for(n2 in 1:ncol(z_prediction)){
+      input_vec <- matrix(c(x_mesh[n1, n2], y_mesh[n1, n2], z_const), nrow = 3)
+      # Get predicted output:
+      forward_out <- forward_propagation(input_vec, trained_model$w1_save, 
+                                         trained_model$w2_save, trained_model$wend_save,
+                                         trained_model$b1_save, trained_model$b2_save,
+                                         trained_model$bend_save)
+      f_prediction[n1, n2] <- forward_out$z_hat
+      # Get True data value 
+      f_real[n1, n2] <- evaluate_function(t(input_vec), eps_error, 1, train_test_output$min_z,
+                                          train_test_output$max_z)
+      
+    }
+  }
+  return(list("x" = x_mesh, "y" = y_mesh, "z" = z_const,
+              "f_prediction" = f_prediction, "f_real" = f_real))
 }

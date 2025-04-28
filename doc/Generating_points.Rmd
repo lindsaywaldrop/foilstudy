@@ -298,13 +298,16 @@ Define the number of training and testing samples, and the epsilon percent error
 n_train <- 500
 n_test <- 500
 eps_error <- 0
+testing <- F
 ```
 
 Generate training and testing data: 
 
 ```{r}
 sobol_seed <- 14
-train_test_output <- get_training_and_test_data(num_inputs, n_train, n_test, eps_error, sobol_seed)
+train_test_output <- get_training_and_test_data(num_inputs, n_train, n_test, eps_error, sobol_seed, 
+                                                testing)
+
 training_data <- cbind(train_test_output$training_data, train_test_output$train_output)
 testing_data <- cbind(train_test_output$test_data, train_test_output$test_output)
 
@@ -333,14 +336,17 @@ hyper_param_list <- list(
   "regularization_flag" = 0,         # 0 for none, 1 for L1, 2 for L2
   "lam_regularize" = 8e-8            # Regularization coefficient, lambda
 )
+
 ```
 
 
 Train the artificial neural network: 
 
 ```{r}
-trained_model <- train_artificial_neural_network(training_data_scaled, testing_data_scaled, hyper_param_list)
+trained_model <- train_artificial_neural_network(training_data_scaled, testing_data_scaled, hyper_param_list, testing)
 ```
+
+
 
 Saving the trained model values as separate csv files in `./src/r-scripts/nn-data/`: 
 
@@ -348,7 +354,139 @@ Saving the trained model values as separate csv files in `./src/r-scripts/nn-dat
 save_trained_model_values(trained_model)
 ```
 
+Plot the cost/loss function versus iteration number: 
 
+```{r}
+plot_cost <- data.frame("iter" = 1:length(trained_model$cost_vec), 
+                        "cost_vec" = trained_model$cost_vec)
+ggplot(plot_cost, aes(iter, log10(cost_vec))) + 
+  geom_point(col = "blue") + 
+  theme_bw()
+```
+Model validation: perform forward propagation on training data set to get model predicted output values. (Trying to recover the data set.)
+
+```{r}
+w1 <- trained_model$w1_save
+w2 <- trained_model$w2_save
+wend <- trained_model$wend_save
+b1 <- trained_model$b1_save
+b2 <- trained_model$b2_save
+bend <- trained_model$bend_save
+fp_results_valid <- forward_propagation(t(training_data_scaled[,1:num_inputs]), w1, w2, wend,
+                                  b1, b2, bend)
+zvalid_scaled <- t(fp_results_valid$z_hat)
+if(testing){
+  zvalid_scaled_matlab <- as.matrix(read.csv("./test/nn_matlab/Matlab_zvalid_scaled.csv", header = F))
+  all.equal(zvalid_scaled[,1], zvalid_scaled_matlab[,1])
+}
+zvalid <- zvalid_scaled
+```
+
+Model testing: perform forward propagation on the test data to get model predicted output values (to test model against independent test data).
+
+```{r}
+fp_results_test <- forward_propagation(t(testing_data_scaled[,1:num_inputs]), w1, w2, wend,
+                                       b1, b2, bend)
+ztest_scaled <- t(fp_results_test$z_hat)
+if(testing){
+  ztest_scaled_matlab <- as.matrix(read.csv("./test/nn_matlab/Matlab_ztest_scaled.csv", header = F))
+  all.equal(ztest_scaled[,1], ztest_scaled_matlab[,1])
+}
+ztest <- ztest_scaled
+```
+
+Stopped here, everything looks good so far. 
+
+```{r}
+training_data[,ncol(training_data)] <- train_test_output$train_output
+testing_data[,ncol(testing_data)] <- train_test_output$test_output
+```
+
+Print error analysis:
+
+```{r}
+print_error_information(zvalid, training_data, "Validation", num_inputs)
+print_error_information(ztest, testing_data, "Testing", num_inputs)
+```
+
+Visualizing results of validation and testing: 
+
+```{r}
+testing_data_df <- data.frame("number" = rep(1:nrow(testing_data),2), 
+                              "function_value" = c(testing_data[,(num_inputs+1)], ztest), 
+                              "type" = rep(c("data", "prediction"), each = nrow(testing_data)))
+
+training_data_df <- data.frame("number" = rep(1:nrow(training_data),2), 
+                              "function_value" = c(training_data[,(num_inputs+1)], zvalid), 
+                              "type" = rep(c("data", "prediction"), each = nrow(training_data)))
+
+test_plot <- ggplot(testing_data_df, aes(x = number, y = function_value, color = type,
+                                         size = type)) + 
+  geom_point() + 
+  scale_size_manual(values = c(2,1)) +
+  xlab("Data point") + ylab("Function value") +
+  ggtitle("Model Testing") +
+  theme_bw()
+
+train_plot <- ggplot(training_data_df, aes(x = number, y = function_value, color = type,
+                                           size = type)) + 
+  geom_point() + 
+  scale_size_manual(values = c(2,1)) +
+  xlab("Data point") + ylab("Function value") +
+  ggtitle("Model Validation") +
+  theme_bw()
+
+train_plot + test_plot + plot_layout(guides = "collect")
+```
+
+Create a 2D test slice to visualize trained NN: 
+
+```{r}
+x1_vec <- seq(0, 1, length.out = 100)
+y1_vec <- seq(0, 1, length.out = 100)
+mesh_out <- meshgrid(x1_vec, y1_vec)
+x1_mesh <- mesh_out$X
+y1_mesh <- mesh_out$Y
+z_const <- 0.5
+
+
+viz_it <- create_2D(x1_mesh, y1_mesh, z_const, trained_model, train_test_output, eps_error)
+
+vizit_predict <- data.frame("x" = as.vector(viz_it$x), "y" = as.vector(viz_it$y), 
+                            "z" = as.vector(viz_it$f_prediction))
+vizit_real <- data.frame("x" = as.vector(viz_it$x), "y" = as.vector(viz_it$y), 
+                            "z" = as.vector(viz_it$f_real))
+
+vizit_relerror <- data.frame("x" = as.vector(viz_it$x), "y" = as.vector(viz_it$y), 
+                            "z" = as.vector(viz_it$f_prediction) - as.vector(viz_it$f_real))
+```
+
+Plot the results: 
+
+```{r}
+predict_plot <- ggplot(vizit_predict, aes(x, y, fill = z)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  ggtitle("Function Prediction by trained\nneural network") + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+real_plot <- ggplot(vizit_real, aes(x, y, fill = z)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  ggtitle("True Function values") + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+relerror_plot <- ggplot(vizit_relerror, aes(x, y, fill = z)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  ggtitle("Relative error values") + 
+  theme_bw() 
+
+predict_plot + real_plot + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+relerror_plot 
+```
 
 
 ## Next Steps... 

@@ -44,7 +44,6 @@ TRAINING_DATA = net(sobol,NTrain);     % data in [0,1]
 %----------------------------------------------------
 TESTING_DATA = rand(NTest,numInputs);
 
-
 %------------------------------------------------------------------------
 %
 %                     EVALUATE SPECIFIED FUNCTION 
@@ -54,7 +53,6 @@ TESTING_DATA = rand(NTest,numInputs);
 flagScaleOutput = 0;
 TRAIN_OUTPUT = Evaluate_Function(TRAINING_DATA,epsError,flagScaleOutput,0,0);
 TEST_OUTPUT =  Evaluate_Function( TESTING_DATA,epsError,flagScaleOutput,0,0);
-
 
 %-----------------------------------------
 % SCALE OUTPUT DATA TO [0,1]
@@ -75,7 +73,7 @@ if flagGetMinMax
     %
     % Scale to [0,1]
     TRAIN_OUTPUT = m * TRAIN_OUTPUT+ b;
-     TEST_OUTPUT = m *  TEST_OUTPUT+ b;
+    TEST_OUTPUT = m *  TEST_OUTPUT+ b;
    
 end
 
