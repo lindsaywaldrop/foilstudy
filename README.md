@@ -22,19 +22,23 @@ Download and install by adding the installation folder to your MATLAB path.
 
 ## Instructions for Reproducing Results
 
-Please follow the steps below to reproduce the analyses. Note that several steps can be performed with either R or MATLAB, depending on your preference.
+Please follow the steps below to reproduce the analyses. Note that several steps can be performed with either R or MATLAB, depending on your preference.Start by cloning the github repository or download the release and unarchive the code. If running in RStudio, open the `foilstudy.Rproj` in RStudio. You may run the `install_R_packages.R` script in `./src/r-scripts/` folder to install the required R packages. 
 
- 1. Clone the github repository or download the release and unarchive the code. If running in RStudio, open the `foilstudy.Rproj` in RStudio. 
- 2. Generate the parameter spaces using grid sampling, gPC sampling, and neural network sampling.
-    * MATLAB: open and run all lines `./doc/Generating_points_MATLAB.mlx` in MATLAB. 
-    * R: open and run all lines `./doc/Generating_points.Rmd` in RStudio. (Note: NN sampling is not yet implemented in R!)
- 3. Generate the airfoil files required to run in XFOIL. 
-    * MATLAB: Open the `./doc/Creating_cambers_MATLAB.mlx` in MATLAB and run all lines.
-    * R: Open the `./doc/Creating_cambers.Rmd` file in RStudio and run all lines, including the last code chunk which requires that a line be uncommented.  
- 4. (MATLAB Only) Open the `./doc/xfoil_step.mlx` file MATLAB and run all sections. Note that this will take several hours to complete. Results are included in the project folder `./results/`, so it is not necessary to complete this step if only using R.
- 5. Open the `Visualizing_results.Rmd` in `doc/` and run all lines. This will provide information on the raw results of the simulations.
+Next, run the following scripts in order: 
+
+ 1. Generate the parameter spaces using grid sampling, gPC sampling, and neural network sampling.
+    * MATLAB: open and run all lines `./doc/1-Generating_points_MATLAB.mlx` in MATLAB. 
+    * R: open and run all lines `./doc/1-Generating_points.Rmd` in RStudio. (Note: NN sampling is not yet implemented in R!)
+ 2. Generate the airfoil files required to run in XFOIL. 
+    * MATLAB: Open the `./doc/2-Creating_cambers_MATLAB.mlx` in MATLAB and run all lines.
+    * R: Open the `./doc/2-Creating_cambers.Rmd` file in RStudio and run all lines, including the last code chunk which requires that a line be uncommented.  
+ 3. (MATLAB Only) Open the `./doc/3-xfoil_step.mlx` file MATLAB and run all sections. Note that this will take several hours to complete. Results are included in the project folder `./results/`, so it is not necessary to complete this step if only using R.
+ 4. (R Only) Open the `4-Visualizing_results.Rmd` in `doc/` and run all lines. This will provide information on the raw results of the simulations.
+ 5. (R Only) Open the `5-creating _surrogates.Rmd` in `doc/` and run all lines. This will provide space to generate the gPC and NN surrogates, including training the neural network model. 
  
-To reproduce the surrogate construction and analysis: 
-
-
+__Note:__ each RMD should have the Knit directory to `project` to successfully knit the document. 
+ 
+## More Information on Surrogate-construction Methods
+ 
+There are code tutorials available for generalized polynomial chaos (R: `gPC_primer.Rmd`) and neural networks (R: `nn_primer.Rmd`). These use general examples to create surrogates and can be used as a code basis for your analysis. These tutorials, and the Creating Surrogates files, also include notes about using each method but should not be considered exhaustive on either method. Specialized expertise is required to use these methods to produce meaningful results for your system.  
 

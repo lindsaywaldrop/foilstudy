@@ -507,12 +507,13 @@ print_error_information <- function(zdat, dat, report_option, num_inputs){
   print(" ")
 }
 
-create_2D <- function(x_mesh, y_mesh, z_const, trained_model, train_test_output, 
-                      eps_error){
+create_2D <- function(x_mesh, y_mesh, z_const, trained_model, 
+                      true_dat = FALSE, train_test_output = NULL, 
+                      eps_error = NULL){
   f_prediction <- matrix(NA, nrow = dim(x_mesh)[1], ncol = dim(x_mesh)[2])
   f_real <- matrix(NA, nrow = dim(x_mesh)[1], ncol = dim(x_mesh)[2])
-  for(n1 in 1:nrow(z_prediction)){
-    for(n2 in 1:ncol(z_prediction)){
+  for(n1 in 1:nrow(f_prediction)){
+    for(n2 in 1:ncol(f_prediction)){
       input_vec <- matrix(c(x_mesh[n1, n2], y_mesh[n1, n2], z_const), nrow = 3)
       # Get predicted output:
       forward_out <- forward_propagation(input_vec, trained_model$w1_save, 
@@ -520,12 +521,87 @@ create_2D <- function(x_mesh, y_mesh, z_const, trained_model, train_test_output,
                                          trained_model$b1_save, trained_model$b2_save,
                                          trained_model$bend_save)
       f_prediction[n1, n2] <- forward_out$z_hat
-      # Get True data value 
-      f_real[n1, n2] <- evaluate_function(t(input_vec), eps_error, 1, train_test_output$min_z,
-                                          train_test_output$max_z)
       
+      if(true_dat){
+        # Get True data value 
+        f_real[n1, n2] <- evaluate_function(t(input_vec), eps_error, 1, train_test_output$min_z,
+                                            train_test_output$max_z)
+      }
     }
   }
-  return(list("x" = x_mesh, "y" = y_mesh, "z" = z_const,
-              "f_prediction" = f_prediction, "f_real" = f_real))
+  if(true_dat){
+    return(list("x" = x_mesh, "y" = y_mesh, "z" = z_const,
+                "f_prediction" = f_prediction, "f_real" = f_real))
+  }else{
+    return(list("x" = x_mesh, "y" = y_mesh, "z" = z_const,
+                "f_prediction" = f_prediction))
+  }
+  
+}
+
+line_fxn <- function(dat){
+  m <- 1/(max(dat) - min(dat))
+  b <- -m*min(dat)
+  return(m * dat + b)
+}
+
+scale_params_data <- function(input_params, log = F){
+  input_scaled <- matrix(NA, nrow = nrow(input_params), 
+                         ncol = ncol(input_params))
+  if(log) input_params[,1] <- log10(input_params[,1])
+  input_scaled[,1] <- line_fxn(input_params[,1])
+  input_scaled[,2] <- line_fxn(input_params[,2])
+  input_scaled[,3] <- line_fxn(input_params[,3])
+  return(input_scaled)
+}
+
+transform_output_data <- function(dat, option = "z-score", lambda = 1){
+  if(option == "box-cox"){
+    dat_output <- ((data[,4]^lambda) - 1) / (lambda)
+    return(list("trans_output" = dat_output, "lambda" = lambda))
+  } else if(option == "box-cox-y"){
+    dat_output <- ((dat^lambda) - 1) / (lambda * (mean(dat)^(lambda - 1)))
+    return(list("trans_output" = dat_output, "lambda" = lambda, 
+                "mean_dat" = mean(dat)))
+  } else if(option == "z-score"){
+    dat_output <- (dat - mean(dat)) / sd(dat)
+    return(list("trans_output" = dat_output, "mean_dat" = mean(dat),
+                "sd_dat" = sd(dat)))
+  } else {
+    stop("Unknown transformation option, please pick another")
+  }
+}
+
+untransform_output_data <- function(dat, option = "z-score", 
+                                    lambda = 1, dat_mean = 1, dat_sd = 1){
+  if(option == "z-score"){
+    output_dat <- dat*dat_sd + dat_mean
+  } else if (option == "box-cox"){
+    output_dat <- ((dat*lambda)  + 1)^(1/lambda) 
+  } else if (option == "box-cox-y"){
+    output_dat <- ((dat*lambda*(dat_mean^(lambda-1)))  + 1)^(1/lambda)
+  } else {
+    stop("Unknown transformation option, please pick another")
+  }
+  return(output_dat)
+}
+
+scale_output_data <- function(train_output, test_output){
+  min_z <- min(c(train_output, test_output))
+  max_z <- max(c(train_output, test_output))
+  m <- 1/(max_z - min_z)
+  b <- -m*min_z
+  train_output <- m * train_output + b
+  test_output <- m * test_output + b
+  return(list("train_output" = train_output, 
+              "test_output" = test_output,
+              "min_z" = min_z, 
+              "max_z" = max_z))
+}
+
+unscale_output_data <- function(output_data, min_z, max_z){
+  m <- 1/(max_z - min_z)
+  b <- -m*min_z
+  unscaled_output <- (output_data - b)/m
+  return(unscaled_output)
 }

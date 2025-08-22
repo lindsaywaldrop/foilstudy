@@ -3,6 +3,13 @@ title: "Artifical Neural Network Primer"
 output: html_notebook
 ---
 
+```{r setup}
+library(pracma)
+library(spacefillr)
+library(ggplot2)
+library(patchwork)
+```
+
 This work is a validated translation of Nick Battista's MATLAB code into R.  This section steps through the entire process found in `./src/matlab/nn/go_Go_ANN.m`.
 
 Load custom functions: 
@@ -53,7 +60,7 @@ Next, we define hyperparameters. Each is noted with a comment below:
 ```{r}
 hyper_param_list <- list(
   "num_hidden_layer_neurons" = 200,  # number of neurons per layer (size of hidden layer)
-  "learning_rate" = 0.55,            # learning rate ("lambda", Gradient Descent Step-size)
+  "learning_rate" = 0.255,            # learning rate ("lambda", Gradient Descent Step-size)
   "momentum" = 0.0,                  # momentum ("inertia factor" from previous Gradient Descent Step)
   "max_epochs" = 1500,               # max number of EPOCHS (forward prop + back prop in training through ALL Training Data)
   "batch_size" = 1,                  # number of samples per mini-batch in Stochastic Gradient Descent
@@ -177,7 +184,8 @@ y1_mesh <- mesh_out$Y
 z_const <- 0.5
 
 
-viz_it <- create_2D(x1_mesh, y1_mesh, z_const, trained_model, train_test_output, eps_error)
+viz_it <- create_2D(x1_mesh, y1_mesh, z_const, trained_model, true_dat = T, 
+                    train_test_output, eps_error)
 
 vizit_predict <- data.frame("x" = as.vector(viz_it$x), "y" = as.vector(viz_it$y), 
                             "z" = as.vector(viz_it$f_prediction))

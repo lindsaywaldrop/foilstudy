@@ -1,0 +1,252 @@
+---
+title: "Creating Surrogates"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r setup, echo=FALSE}
+library(pracma)
+library(spacefillr)
+library(ggplot2)
+library(patchwork)
+```
+
+## Creating a surrogate with the Neural Network model
+
+The parameter sets created in `Generating_points.RMD` that were then run through the full simulation of XFOIL will serve as the training data set for the neural network. The first step will be training the model. We'll also train the model with both the Re no-log transformed set and the Re log-transformed set.
+
+### Training the Neural Network
+
+Load custom functions: 
+
+```{r}
+source("./src/r-scripts/nn_functions.R")
+```
+
+Define inputs and outputs: 
+
+```{r}
+num_inputs <- 3
+num_outputs <- 1
+eps_error <- 0
+testing <- F
+```
+
+We'll load the no-log parameter set and results used to run XFOIL. We'll reorder the results according to the order of the original parameter set so that the two data sets match up correctly. 
+
+```{r}
+train_params <- read.csv("./data/parameters/NN_Params_noLogRe.csv", header = F)
+train_results <- read.csv("./results/NN_noLogRe_results.csv", header = T)
+train_results <- train_results[order(train_results$sim),]
+```
+
+
+Next, combine the parameter set and CL results into a single matrix. Since there are several NaN produced by XFOIL, we need to remove those failed simulations. 
+
+```{r}
+training_data <- cbind(train_params, "output" = train_results$CL)
+training_data <- training_data[!is.nan(training_data[,4]),]
+```
+
+We can define the number of training data based on the successful simulations. We'll also generate the testing data set based on that number of simulations:
+
+```{r}
+n_train <- nrow(training_data)
+```
+
+The testing data will be the log-transformed data set. 
+
+```{r}
+test_params <- read.csv("./data/parameters/gPC_Params_noLogRe.csv", header = F)
+test_results <- read.csv("./results/gPC_noLogRe_results.csv", header = T)
+test_results <- test_results[order(test_results$sim),]
+testing_data <- cbind(test_params, "output" = test_results$CL)
+testing_data <- as.matrix(testing_data[!is.nan(testing_data[,4]),])
+n_test <- nrow(testing_data)
+```
+
+The testing and training data now need to be scaled and standardized. This is an important step that helps train the models, which work best with data that are normally distributed. 
+
+First, the parameter ranges are scaled such that their ranges are [0,1].
+
+```{r}
+scaled_params_train <- scale_params_data(training_data[,1:3], F)
+scaled_params_test <- scale_params_data(testing_data[,1:3], T)
+```
+
+Next, the output data need to viewed to see what needs to happen. Using CLCD, we can see that the data are skewed and not normally distributed, so we will normalize and standardize the output for training. 
+
+```{r}
+ggplot(train_results, aes(CL)) + geom_histogram() + theme_bw()
+```
+
+```{r}
+# Box Cox transformation 
+# see: https://reinec.medium.com/my-notes-handling-skewed-data-5984de303725
+
+# Box Cox Y transformation
+# see: https://www.jmp.com/support/help/en/18.2/index.shtml#page/jmp/boxcox-y-transformation.shtml 
+lambda <- 1.7
+train_output <- transform_output_data(training_data[,4], option = "box-cox-y", lambda)
+test_output <- transform_output_data(testing_data[,4], option = "box-cox-y", lambda)
+
+scale_output2 <- scale_output_data(train_output$trans_output, test_output$trans_output)
+training_data_scaled <- cbind(scaled_params_train, scale_output2$train_output)
+colnames(training_data_scaled) <- c("Re", "aoa", "camber", "CL")
+
+
+testing_data_scaled <- cbind(scaled_params_test, scale_output2$test_output)
+colnames(testing_data_scaled) <- c("Re", "aoa", "camber", "CL")
+```
+
+```{r}
+ggplot(training_data_scaled, aes(CL)) + geom_histogram() + theme_bw()
+```
+
+*Note: potentially need to shift the training data so that the output has a normal distribution. Use a power transformation to scale the data into normality. * 
+
+Next, we define hyperparameters. Each is noted with a comment below: 
+
+```{r}
+hyper_param_list <- list(
+  "num_hidden_layer_neurons" = 200,  # number of neurons per layer (size of hidden layer)
+  "learning_rate" = 0.55,            # learning rate ("lambda", Gradient Descent Step-size)
+  "momentum" = 0.0,                  # momentum ("inertia factor" from previous Gradient Descent Step)
+  "max_epochs" = 1500,               # max number of EPOCHS (forward prop + back prop in training through ALL Training Data)
+  "batch_size" = 1,                  # number of samples per mini-batch in Stochastic Gradient Descent
+  "print_interval" = 100,            # how often to print COST/ERROR info to screen during training
+  "adaptive_step_size" = 0,          # 0 for no, 1 for yes (Barzilai_Borwein step)
+  "num_inputs" = num_inputs,         # number of input parameters
+  "regularization_flag" = 0,         # 0 for none, 1 for L1, 2 for L2
+  "lam_regularize" = 8e-8            # Regularization coefficient, lambda
+)
+
+```
+
+Train the artificial neural network: 
+
+```{r}
+trained_model <- train_artificial_neural_network(training_data_scaled, testing_data_scaled,
+                                                 hyper_param_list, testing)
+```
+
+Saving the trained model values as separate csv files in `./src/r-scripts/nn-data/`: 
+
+```{r}
+save_trained_model_values(trained_model)
+```
+
+Plot the cost/loss function versus iteration number: 
+
+```{r}
+plot_cost <- data.frame("iter" = 1:length(trained_model$cost_vec), 
+                        "cost_vec" = trained_model$cost_vec)
+ggplot(plot_cost, aes(iter, log10(cost_vec))) + 
+  geom_point(col = "blue") + 
+  theme_bw()
+```
+
+```{r}
+w1 <- trained_model$w1_save
+w2 <- trained_model$w2_save
+wend <- trained_model$wend_save
+b1 <- trained_model$b1_save
+b2 <- trained_model$b2_save
+bend <- trained_model$bend_save
+fp_results_valid <- forward_propagation(t(training_data_scaled[,1:num_inputs]), 
+                                        w1, w2, wend, b1, b2, bend)
+zvalid_scaled <- t(fp_results_valid$z_hat)
+zvalid <- unscale_output_data(zvalid_scaled, scale_output2$min_z, scale_output2$max_z)
+zvalid <- untransform_output_data(zvalid, option = "box-cox-y", lambda, 
+                                  dat_mean = mean(training_data[,4]))
+
+print_error_information(zvalid, training_data, "Validation", num_inputs)
+```
+
+```{r}
+fp_results_test <- forward_propagation(t(testing_data_scaled[,1:num_inputs]), 
+                                        w1, w2, wend, b1, b2, bend)
+ztest_scaled <- t(fp_results_test$z_hat)
+ztest <- unscale_output_data(ztest_scaled, scale_output2$min_z, scale_output2$max_z)
+ztest <- untransform_output_data(ztest, option = "box-cox-y", lambda, 
+                                  dat_mean = mean(testing_data[,4]))
+print_error_information(ztest, testing_data, "Testing", num_inputs)
+```
+
+```{r}
+training_data_df <- data.frame("number" = rep(1:nrow(training_data),2), 
+                              "function_value" = c(training_data[,(num_inputs+1)], zvalid), 
+                              "type" = rep(c("data", "prediction"), each = nrow(training_data)))
+
+testing_data_df <- data.frame("number" = rep(1:nrow(testing_data),2), 
+                              "function_value" = c(testing_data[,(num_inputs+1)], ztest), 
+                              "type" = rep(c("data", "prediction"), each = nrow(testing_data)))
+
+train_plot <- ggplot(training_data_df, aes(x = number, y = function_value, color = type,
+                                           size = type)) + 
+  geom_point() + 
+  scale_size_manual(values = c(2,1)) +
+  xlab("Data point") + ylab("Function value") +
+  ggtitle("Model Validation") +
+  theme_bw()
+
+test_plot <- ggplot(testing_data_df, aes(x = number, y = function_value, color = type,
+                                         size = type)) + 
+  geom_point() + 
+  scale_size_manual(values = c(2,1)) +
+  xlab("Data point") + ylab("Function value") +
+  ggtitle("Model Testing") +
+  theme_bw()
+
+train_plot + test_plot + plot_layout(guides = "collect")
+```
+
+Create a 2D test slice to visualize trained NN: 
+
+```{r}
+x1_vec <- seq(0, 1, length.out = 100)
+y1_vec <- seq(0, 1, length.out = 100)
+mesh_out <- meshgrid(x1_vec, y1_vec)
+x1_mesh <- mesh_out$X
+y1_mesh <- mesh_out$Y
+z_const <- 0.5
+
+
+viz_it <- create_2D(x1_mesh, y1_mesh, z_const, trained_model, true_dat = F)
+
+ztest <- unscale_output_data(as.vector(viz_it$f_prediction), scale_output2$min_z, scale_output2$max_z)
+ztest <- untransform_output_data(ztest, option = "box-cox-y", lambda, 
+                                  dat_mean = mean(testing_data[,4]))
+
+vizit_predict <- data.frame("x" = as.vector(viz_it$x), "y" = as.vector(viz_it$y), 
+                            "z" = ztest)
+
+```
+
+Plot the results: 
+
+```{r}
+predict_plot <- ggplot(vizit_predict, aes(x, y, fill = z)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  ggtitle("Function Prediction by trained\nneural network") + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+real_plot <- ggplot(vizit_real, aes(x, y, fill = z)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  ggtitle("True Function values") + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+relerror_plot <- ggplot(vizit_relerror, aes(x, y, fill = z)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  ggtitle("Relative error values") + 
+  theme_bw() 
+
+predict_plot + real_plot + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+relerror_plot 
+```
