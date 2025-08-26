@@ -12,15 +12,25 @@ library(ggplot2)
 library(patchwork)
 ```
 
+This document walks through the process of creating performance spaces from each of the three methods (grid sampling, generalized polynomial chaos, and neural network) using the same number of simulations for each method (343 total) across three parameters (Reynolds number, angle of attack, and airfoil camber). The performance metric chosen is the coefficient of lift ($C_L$). The end result is a figure presented in the review paper comparing the resolutions of each method.
+
 ## Visualizing results of grid sampling
 
+Actual results of the grid sampling across the three parameters can be plotted in a grid map to create a performance space. 
+
 ```{r}
+# Read in the results of the simulations:
 grid_results <- read.csv("./results/grid_noLogRe_results.csv")
+# Reorder the results so that they are in the same order as the parameter file:
 grid_results <- grid_results[order(grid_results$sim), ]
+# Read in the parameter set:
 grid_params <- read.csv("./data/parameters/grid_Params_noLogRe.csv", header = F)
 colnames(grid_params) <- c("Re", "aoa", "camber")
+# Bind the parameters and results together:
 grid_results <- cbind("sim" = grid_results$sim, grid_params, grid_results[,2:4])
 ```
+
+Here we can plot a 2D performance space of the coefficient of lift ($C_L$) at a constant Reynolds number ($Re = 500500000$). The resulting performance space is low resolution and simulations that failed (`NaN`) are represented as gray tiles. 
 
 ```{r}
 grid_plot <- ggplot(grid_results[grid_results$Re == 500500000,], aes(aoa, camber, fill = CL)) +
@@ -35,14 +45,12 @@ grid_plot
 
 ## Creating a surrogate with the generalized polynomial chaos model
 
-
+Coming soon!
 
 
 ## Creating a surrogate with the Neural Network model
 
-The parameter sets created in `Generating_points.RMD` that were then run through the full simulation of XFOIL will serve as the training data set for the neural network. The first step will be training the model. We'll also train the model with both the Re no-log transformed set and the Re log-transformed set.
-
-### Training the Neural Network
+The parameter sets created in `1-Generating_points.RMD` that were then run through the full simulation of XFOIL will serve as the training data set for the neural network. The first step will be training the model. We'll also train the model with both the Re no-log transformed set and the Re log-transformed set.
 
 Load custom functions: 
 
@@ -59,7 +67,9 @@ eps_error <- 0
 testing <- F
 ```
 
-We'll load the no-log parameter set and results used to run XFOIL. We'll reorder the results according to the order of the original parameter set so that the two data sets match up correctly. 
+### Prepare the data for training and testing
+
+We'll load the non-log transformed parameter set and results used to run XFOIL. We'll reorder the results according to the order of the original parameter set so that the two data sets match up correctly. 
 
 ```{r}
 train_params <- read.csv("./data/parameters/NN_Params_noLogRe.csv", header = F)
@@ -102,18 +112,20 @@ scaled_params_train <- scale_params_data(training_data[,1:3], F)
 scaled_params_test <- scale_params_data(testing_data[,1:3], T)
 ```
 
-Next, the output data need to viewed to see what needs to happen. Using CLCD, we can see that the data are skewed and not normally distributed, so we will normalize and standardize the output for training. 
+Next, the output data need to viewed to see what needs to happen. Using CL, we can see that the data are skewed and not normally distributed, so we will normalize and standardize the output for training. 
 
-```{r}
+```{r warning=FALSE, message=FALSE}
 ggplot(train_results, aes(CL)) + geom_histogram() + theme_bw()
 ```
 
+There are a variety of options for transforming output data. Two are implemented in this code: the Box Cox and Box Cox Y transformations. For `CL`, we use the Box Cox Y option. For more information, these resources are helpful. 
+Box Cox: https://reinec.medium.com/my-notes-handling-skewed-data-5984de303725 
+Box Cox Y: https://www.jmp.com/support/help/en/18.2/index.shtml#page/jmp/boxcox-y-transformation.shtml
+
+
 ```{r}
-# Box Cox transformation 
-# see: https://reinec.medium.com/my-notes-handling-skewed-data-5984de303725
 
 # Box Cox Y transformation
-# see: https://www.jmp.com/support/help/en/18.2/index.shtml#page/jmp/boxcox-y-transformation.shtml 
 lambda <- 1.7
 train_output <- transform_output_data(training_data[,4], option = "box-cox-y", lambda)
 test_output <- transform_output_data(testing_data[,4], option = "box-cox-y", lambda)
@@ -122,16 +134,17 @@ scale_output2 <- scale_output_data(train_output$trans_output, test_output$trans_
 training_data_scaled <- cbind(scaled_params_train, scale_output2$train_output)
 colnames(training_data_scaled) <- c("Re", "aoa", "camber", "CL")
 
-
 testing_data_scaled <- cbind(scaled_params_test, scale_output2$test_output)
 colnames(testing_data_scaled) <- c("Re", "aoa", "camber", "CL")
 ```
 
-```{r}
+Replotting the data demonstrates that the data are now distributed more normally. 
+
+```{r warning=FALSE, message=FALSE}
 ggplot(training_data_scaled, aes(CL)) + geom_histogram() + theme_bw()
 ```
 
-*Note: potentially need to shift the training data so that the output has a normal distribution. Use a power transformation to scale the data into normality. * 
+### Training the Neural Network
 
 Next, we define hyperparameters. Each is noted with a comment below: 
 
@@ -151,18 +164,16 @@ hyper_param_list <- list(
 
 ```
 
-Train the artificial neural network: 
+Train the artificial neural network. Save the trained model values as separate csv files in `./src/r-scripts/nn-data-date/` where date is the system date at the time the code was run. The step can take a good bit of time. 
+
 
 ```{r}
 trained_model <- train_artificial_neural_network(training_data_scaled, testing_data_scaled,
                                                  hyper_param_list, testing)
-```
-
-Saving the trained model values as separate csv files in `./src/r-scripts/nn-data/`: 
-
-```{r}
 save_trained_model_values(trained_model)
 ```
+
+### Intepreting the success of training
 
 Plot the cost/loss function versus iteration number: 
 
@@ -173,6 +184,8 @@ ggplot(plot_cost, aes(iter, log10(cost_vec))) +
   geom_point(col = "blue") + 
   theme_bw()
 ```
+
+Comparing the training data set (generated by XFOIL simulations) to the same values predicted by the trained model validates the training process. These values are: 
 
 ```{r}
 w1 <- trained_model$w1_save
@@ -190,6 +203,9 @@ zvalid <- untransform_output_data(zvalid, option = "box-cox-y", lambda,
 
 print_error_information(zvalid, training_data, "Validation", num_inputs)
 ```
+Average ABS error is very low, indicating a successful training session. 
+
+Next, another set of testing data (produced by XFOIL simulations) drawn from a different set of parameter combinations can be compared to the predicted values from the trained model to test the validity of the trained model. These values are:
 
 ```{r}
 fp_results_test <- forward_propagation(t(testing_data_scaled[,1:num_inputs]), 
@@ -200,8 +216,11 @@ ztest <- untransform_output_data(ztest, option = "box-cox-y", lambda,
                                   dat_mean = mean(testing_data[,4]))
 print_error_information(ztest, testing_data, "Testing", num_inputs)
 ```
+The relative error in this case is around 3% (varies with every model-training session), which is an acceptable amount of error between the model and real values in this system.
 
-```{r}
+Both these steps can be visualized by plotting the data points (XFOIL simulation values) to the predicted values from the trained model for both training and testing:
+
+```{r warning=FALSE, message=FALSE}
 training_data_df <- data.frame("number" = rep(1:nrow(training_data),2), 
                               "function_value" = c(training_data[,(num_inputs+1)], zvalid), 
                               "type" = rep(c("data", "prediction"), each = nrow(training_data)))
@@ -229,11 +248,13 @@ test_plot <- ggplot(testing_data_df, aes(x = number, y = function_value, color =
 train_plot + test_plot + plot_layout(guides = "collect")
 ```
 
-Create a 2D test slice to visualize trained NN: 
+### Creating a surrogate with the trained-model weights
+
+After training the model, we have a set of trained-model parameters that can be used to predict the value of any parameter combination within the ranges of the trained model. To create a 2D test slice to visualize trained neural network, we pass these through a function `create_2D` which uses the `forward_propagation` function to predict unknown values. This is extremely low cost compared to running individual simulations in XFOIL and can generate detailed performance spaces. 
 
 ```{r}
 trained_model <- load_trained_model("./src/r-scripts/nn-data-2025-08-26/")
-x1_const <- 500500500
+x1_const <- 500500000
 x1_const_scaled <- 0.5
 x1_mesh_scaled <- matrix(x1_const_scaled, nrow = 100, ncol = 100)
 y1_vec <- seq(0, 15, length.out = 100)
@@ -256,7 +277,7 @@ vizit_predict <- data.frame("x" = as.vector(mesh_out_real$X), "y" = as.vector(me
 
 ```
 
-Plot the results: 
+The resulting performance space, over a 100 by 100 grid of angles of attack and airfoil cambers at $Re = 500$k, is plotted below. 
 
 ```{r}
 predict_nn_plot <- ggplot(vizit_predict, aes(x, y, fill = z)) + 
@@ -273,6 +294,7 @@ predict_nn_plot +  plot_layout(guides = "collect") & theme(legend.position = "bo
 
 ## Figure from publication
 
+The figure from the review paper consists of each of the above methods plotted together. 
 
 ```{r}
 grid_plot + theme(legend.position = "none") + predict_nn_plot +
