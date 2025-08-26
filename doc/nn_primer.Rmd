@@ -183,8 +183,7 @@ x1_mesh <- mesh_out$X
 y1_mesh <- mesh_out$Y
 z_const <- 0.5
 
-
-viz_it <- create_2D(x1_mesh, y1_mesh, z_const, trained_model, true_dat = T, 
+viz_it <- create_2D(x1_mesh, y1_mesh, z_const_scaled, trained_model, true_dat = T, 
                     train_test_output, eps_error)
 
 vizit_predict <- data.frame("x" = as.vector(viz_it$x), "y" = as.vector(viz_it$y), 

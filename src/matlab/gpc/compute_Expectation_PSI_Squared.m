@@ -16,7 +16,7 @@ function E_PSI_SQR_VEC = compute_Expectation_PSI_Squared(alphaMAT)
         prod = 1;
         for j=1:length(alphaMAT(1,:))
 
-            prod = prod * 1 / (2*alphaMAT(i,j)+1);
+            prod = prod * 2 / (2*alphaMAT(i,j)+1);
 
         end
 

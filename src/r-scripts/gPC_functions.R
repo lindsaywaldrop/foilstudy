@@ -518,7 +518,7 @@ compute_expectation_psi_squared <- function(alpha_mat){
     #  Loop over each index in alphaMAT (loops over # of uncertain parameters)
     prod_dat <- 1
     for(j in 1:ncol(alpha_mat)){
-      prod_dat <- (prod_dat * 1) / (2*alpha_mat[i,j] + 1)
+      prod_dat <- (prod_dat * 2) / (2*alpha_mat[i,j] + 1)
     }
     e_psi_sqr_vec[i] <- prod_dat
   }

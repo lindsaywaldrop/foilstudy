@@ -475,13 +475,39 @@ matlab_max <- function(x, a){
 }
 
 save_trained_model_values <- function(trained_model){
-  dir.create("./src/r-scripts/nn-data/", showWarnings = F)
+  dir.create(paste0("./src/r-scripts/nn-data-", Sys.Date(), "/"), showWarnings = F)
   for(i in names(trained_model)){
     write.table(trained_model[[i]], 
-                file = paste0("./src/r-scripts/nn-data/",i,".csv"),
+                file = paste0("./src/r-scripts/nn-data-", Sys.Date(), "/",i,".csv"),
                 row.names = F, col.names = F, sep = ",")
   }
   return(NULL)
+}
+
+load_trained_model <- function(nn_loc){
+  w1 <- read.csv(paste0(nn_loc,"w1_save.csv"), header = F)
+  w2 <- read.csv(paste0(nn_loc,"w2_save.csv"), header = F)
+  wend <- read.csv(paste0(nn_loc,"wend_save.csv"), header = F)
+  b1 <- read.csv(paste0(nn_loc,"b1_save.csv"), header = F)
+  b2 <- read.csv(paste0(nn_loc,"b2_save.csv"), header = F)
+  cost_vec <- read.csv(paste0(nn_loc,"cost_vec.csv"), header = F)
+  cost_vec_test <- read.csv(paste0(nn_loc,"cost_vec_test.csv"), header = F)
+  cost_vec_train <- read.csv(paste0(nn_loc,"cost_vec_train.csv"), header = F)
+  min_cost <- read.csv(paste0(nn_loc,"min_cost.csv"), header = F)
+  
+  completed_training <- list(
+    "w1_save" = as.matrix(w1),
+    "w2_save" = as.matrix(w2),
+    "wend_save" = as.matrix(wend),
+    "b1_save" = as.matrix(b1),
+    "b2_save" = as.matrix(b2),
+    "bend_save" = as.matrix(bend),
+    "cost_vec" = as.matrix(cost_vec),
+    "cost_vec_test" = as.matrix(cost_vec_test),
+    "cost_vec_train" = as.matrix(cost_vec_train),
+    "min_cost" = as.matrix(min_cost))
+
+  return(completed_training)
 }
 
 print_error_information <- function(zdat, dat, report_option, num_inputs){
@@ -507,14 +533,14 @@ print_error_information <- function(zdat, dat, report_option, num_inputs){
   print(" ")
 }
 
-create_2D <- function(x_mesh, y_mesh, z_const, trained_model, 
+create_2D <- function(x_mesh, y_mesh, z_mesh, trained_model, 
                       true_dat = FALSE, train_test_output = NULL, 
                       eps_error = NULL){
   f_prediction <- matrix(NA, nrow = dim(x_mesh)[1], ncol = dim(x_mesh)[2])
   f_real <- matrix(NA, nrow = dim(x_mesh)[1], ncol = dim(x_mesh)[2])
   for(n1 in 1:nrow(f_prediction)){
     for(n2 in 1:ncol(f_prediction)){
-      input_vec <- matrix(c(x_mesh[n1, n2], y_mesh[n1, n2], z_const), nrow = 3)
+      input_vec <- matrix(c(x_mesh[n1, n2], y_mesh[n1, n2], z_mesh[n1, n2]), nrow = 3)
       # Get predicted output:
       forward_out <- forward_propagation(input_vec, trained_model$w1_save, 
                                          trained_model$w2_save, trained_model$wend_save,
@@ -530,10 +556,10 @@ create_2D <- function(x_mesh, y_mesh, z_const, trained_model,
     }
   }
   if(true_dat){
-    return(list("x" = x_mesh, "y" = y_mesh, "z" = z_const,
+    return(list("x" = x_mesh, "y" = y_mesh, "z" = z_mesh,
                 "f_prediction" = f_prediction, "f_real" = f_real))
   }else{
-    return(list("x" = x_mesh, "y" = y_mesh, "z" = z_const,
+    return(list("x" = x_mesh, "y" = y_mesh, "z" = z_mesh,
                 "f_prediction" = f_prediction))
   }
   

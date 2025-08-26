@@ -12,6 +12,32 @@ library(ggplot2)
 library(patchwork)
 ```
 
+## Visualizing results of grid sampling
+
+```{r}
+grid_results <- read.csv("./results/grid_noLogRe_results.csv")
+grid_results <- grid_results[order(grid_results$sim), ]
+grid_params <- read.csv("./data/parameters/grid_Params_noLogRe.csv", header = F)
+colnames(grid_params) <- c("Re", "aoa", "camber")
+grid_results <- cbind("sim" = grid_results$sim, grid_params, grid_results[,2:4])
+```
+
+```{r}
+grid_plot <- ggplot(grid_results[grid_results$Re == 500500000,], aes(aoa, camber, fill = CL)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = expression(C[L])) + 
+  xlab("Angle of attack") + ylab("Camber") +
+  ggtitle("Grid sampling") + 
+  theme_bw()
+grid_plot
+```
+
+
+## Creating a surrogate with the generalized polynomial chaos model
+
+
+
+
 ## Creating a surrogate with the Neural Network model
 
 The parameter sets created in `Generating_points.RMD` that were then run through the full simulation of XFOIL will serve as the training data set for the neural network. The first step will be training the model. We'll also train the model with both the Re no-log transformed set and the Re log-transformed set.
@@ -59,6 +85,7 @@ The testing data will be the log-transformed data set.
 
 ```{r}
 test_params <- read.csv("./data/parameters/gPC_Params_noLogRe.csv", header = F)
+colnames(test_params) <- c("Re", "aoa", "camber")
 test_results <- read.csv("./results/gPC_noLogRe_results.csv", header = T)
 test_results <- test_results[order(test_results$sim),]
 testing_data <- cbind(test_params, "output" = test_results$CL)
@@ -205,21 +232,26 @@ train_plot + test_plot + plot_layout(guides = "collect")
 Create a 2D test slice to visualize trained NN: 
 
 ```{r}
-x1_vec <- seq(0, 1, length.out = 100)
-y1_vec <- seq(0, 1, length.out = 100)
-mesh_out <- meshgrid(x1_vec, y1_vec)
-x1_mesh <- mesh_out$X
-y1_mesh <- mesh_out$Y
-z_const <- 0.5
+trained_model <- load_trained_model("./src/r-scripts/nn-data-2025-08-26/")
+x1_const <- 500500500
+x1_const_scaled <- 0.5
+x1_mesh_scaled <- matrix(x1_const_scaled, nrow = 100, ncol = 100)
+y1_vec <- seq(0, 15, length.out = 100)
+z1_vec <- seq(0, 0.2, length.out = 100)
+mesh_out <- meshgrid(line_fxn(y1_vec), line_fxn(z1_vec))
+mesh_out_real <- meshgrid(y1_vec, z1_vec)
+y1_mesh <- mesh_out$X
+z1_mesh <- mesh_out$Y
 
 
-viz_it <- create_2D(x1_mesh, y1_mesh, z_const, trained_model, true_dat = F)
+viz_it <- create_2D(x1_mesh_scaled, y1_mesh, z1_mesh, trained_model, true_dat = F)
 
-ztest <- unscale_output_data(as.vector(viz_it$f_prediction), scale_output2$min_z, scale_output2$max_z)
+ztest <- unscale_output_data(as.vector(viz_it$f_prediction), 
+                             scale_output2$min_z, scale_output2$max_z)
 ztest <- untransform_output_data(ztest, option = "box-cox-y", lambda, 
                                   dat_mean = mean(testing_data[,4]))
 
-vizit_predict <- data.frame("x" = as.vector(viz_it$x), "y" = as.vector(viz_it$y), 
+vizit_predict <- data.frame("x" = as.vector(mesh_out_real$X), "y" = as.vector(mesh_out_real$Y), 
                             "z" = ztest)
 
 ```
@@ -227,26 +259,26 @@ vizit_predict <- data.frame("x" = as.vector(viz_it$x), "y" = as.vector(viz_it$y)
 Plot the results: 
 
 ```{r}
-predict_plot <- ggplot(vizit_predict, aes(x, y, fill = z)) + 
+predict_nn_plot <- ggplot(vizit_predict, aes(x, y, fill = z)) + 
   geom_tile() + 
-  scale_fill_viridis_c() + 
-  ggtitle("Function Prediction by trained\nneural network") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+  scale_fill_viridis_c(name = expression(C[L])) + 
+  xlab("Angle of attack") + ylab("Camber") +
+  ggtitle("Trained neural network") + 
+  theme_bw() #+ 
+  #theme(legend.position = "bottom")
 
-real_plot <- ggplot(vizit_real, aes(x, y, fill = z)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  ggtitle("True Function values") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+predict_nn_plot +  plot_layout(guides = "collect") & theme(legend.position = "bottom")
 
-relerror_plot <- ggplot(vizit_relerror, aes(x, y, fill = z)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  ggtitle("Relative error values") + 
-  theme_bw() 
-
-predict_plot + real_plot + plot_layout(guides = "collect") & theme(legend.position = "bottom")
-relerror_plot 
 ```
+
+## Figure from publication
+
+
+```{r}
+grid_plot + theme(legend.position = "none") + predict_nn_plot +
+  plot_annotation(tag_levels = "a")
+dir.create("./results/plots/", showWarnings = F)
+ggsave(plot = last_plot(), filename = "./results/plots/surrogate_compare_figure.pdf", 
+       height = 3.5*1.5, width = 6.5*1.5)
+```
+
