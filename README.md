@@ -1,7 +1,6 @@
 # foilstudy -- An example of performance space creation and analysis
 
-This repository accompanies the publication Hebdon, He, Battista, and Waldrop (in prep) 
-and contains the necessary code to reproduce the performance-space generation figure therein. 
+This repository accompanies a manuscript submission and contains the necessary code to reproduce the performance-space generation figure therein. 
 
 ## Required Software
 
@@ -38,7 +37,7 @@ Next, run the following scripts in order:
  
 __Note:__ each RMD should have the Knit directory to `project` to successfully knit the document and run code. 
 
-Rerunning the code will not reproduce the results exactly because of some randomness in the process of point generation and XFOIL functions. These small differences will not affect the overall information presented in the final figure.
+Rerunning the code will not reproduce the results exactly because of some randomness in the process of point generation, XFOIL functions, and training the neural network. These small differences will not affect the overall information presented in the final figure.
  
 ## More Information on Surrogate-construction Methods
  
