@@ -1,4 +1,4 @@
-# foilstudy -- An example of performance space creation and analysis
+# foilstudy -- An example of performance space creation
 
 This repository accompanies a manuscript submission and contains the necessary code to reproduce the performance-space generation figure therein. 
 
