@@ -108,46 +108,28 @@ There will be two sets of full simulations used, one for training and one for te
 # Loading parameters
 train_gpc_params <- read.csv("./data/parameters/gPC_Params_noLogRe.csv",
                             header = F)
-
-
-unscaled_params <- matrix(NA, nrow = 343, ncol = 3)
-unscaled_params[,2] <- ((train_gpc_params[,2]/max(aoa_range))*2)-1
-unscaled_params[,3] <-  round(((train_gpc_params[,3] - min(camber_range))/
-                                 (max(camber_range) - min(camber_range)))*2 - 1, 
-                              digits = 4)
-unscaled_params[,1] <- (train_gpc_params[,1] - min(Re_range))/
-  (max(Re_range)  - min(Re_range))*2 - 1
-
-param_reorder <- rep(NA, nrow(param_combo))
-for(j in 1:nrow(unscaled_params)){
-  for(k in 1:nrow(param_combo)){
-    result <- all.equal(unscaled_params[j,1:3], param_combo[k,], 
-                        check.attributes = F, tolerance = 5.e-4)
-    if(isTRUE(result)) param_reorder[j] <- k
-  }
-}
-test_set <- unscaled_params[order(param_reorder),]
+# Reorder vector according to previously run parameter set
+param_reorder <- reorder_param_data(train_gpc_params, Re_range, aoa_range, 
+                                    camber_range, param_combo)
 
 # Loading simulation results
 train_gpc_results <- read.csv("./results/gpc_noLogRe_results.csv", header = T)
-# Reorder results based on simulation number
+# Reorder results based on simulation number (to match csv file)
 train_gpc_results <- train_gpc_results[order(train_gpc_results$sim), ]
-# Create results data frame
+# Create full data frame
 training_gpc_data <- cbind("sim" = train_gpc_results$sim, train_gpc_params, 
                            "output" = train_gpc_results$CL)
+# Reorder to match param_combo produced here
 training_gpc_data <- training_gpc_data[order(param_reorder),]
+# Reset simulation numbers
 training_gpc_data$sim <- seq(1,nrow(training_gpc_data))
-test_set <- cbind(test_set, training_gpc_data$output, training_gpc_data$sim)
 # Remove failed simulations
 training_gpc_data <- training_gpc_data[!is.nan(training_gpc_data$output), ]
-training_gpc_data <- as.data.frame(test_set[!is.nan(test_set[,4]),])
-colnames(training_gpc_data) <- c("Re", "aoa", "camber", "output", "sim")
+colnames(training_gpc_data) <- c( "sim","Re", "aoa", "camber", "output")
+# Clean up
+rm(train_gpc_params, train_gpc_results)
 ```
 
-```{r}
-
-#unscaled_params <- unscaled_params[order(unscaled_params[,4]),]
-```
 
 ```{r}
 ### Testing data
@@ -166,17 +148,6 @@ testing_gpc_data <- testing_gpc_data[!is.nan(testing_gpc_data$output),]
 # Clean up
 rm(test_gpc_results, test_gpc_params)
 ```
-Loading matlab data: 
-
-```{r}
-gpc_info_matlab <- R.matlab::readMat("./gPC/gPC_Info.mat")
-param_combo_matlab <- gpc_info_matlab$param.combo
-info_mat_matlab <- gpc_info_matlab$INFO.MAT
-alpha_mat_matlab <- gpc_info_matlab$alphaMAT
-gpc_train_data_matlab <- R.matlab::readMat("./gPC/gPC_Training_Dataset.mat")
-train_params_matlab <- gpc_train_data_matlab$Train.PARAMS
-train_results_matlab <- gpc_train_data_matlab$Training.RESULTS
-```
 
 
 Restrict matrices to only successful simulations: 
@@ -184,18 +155,13 @@ Restrict matrices to only successful simulations:
 ```{r}
 # R data
 info_mat <- info_mat[training_gpc_data$sim,]
-train_gpc_params <- train_gpc_params[training_gpc_data$sim,]
-# Matlab data
-sims_used <- train_results_matlab[,1]
-info_mat_matlab <- info_mat_matlab[sims_used,]
-
+train_gpc_params <- training_gpc_data[,2:4]
 ```
 
 Extract output data, here it is coefficient of lift (`CL`):
 
 ```{r }
 output_gpc <- training_gpc_data$output
-output_matlab <- train_results_matlab[,2]
 ```
 
 Calculate the pseudo-inverse of the info matrix:
@@ -246,7 +212,7 @@ for(j in 1:nrow(train_gpc_params)){
   
 }
 
-plot_gpc_train <- data.frame("sim" = train_gpc_results$sim, 
+plot_gpc_train <- data.frame("sim" = training_gpc_data$sim, 
                              "gpc_train" = gpc_CL, 
                              "gpc_real" = output_gpc)
 plot_gpc_train <- pivot_longer(plot_gpc_train, cols = !"sim")

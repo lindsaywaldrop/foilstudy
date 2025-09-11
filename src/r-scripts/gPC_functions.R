@@ -554,3 +554,24 @@ transform_values_to_minus1_plus1 <- function(val_orig, a, b){
   val_t <- m*val_orig + b
   return(val_t)
 }
+
+reorder_param_data <- function(gpc_params, Re_range, aoa_range, camber_range, 
+                               param_combo){
+  unscaled_params <- matrix(NA, nrow = nrow(gpc_params), ncol = 3)
+  unscaled_params[,2] <- ((gpc_params[,2]/max(aoa_range))*2)-1
+  unscaled_params[,3] <-  round(((gpc_params[,3] - min(camber_range))/
+                                   (max(camber_range) - min(camber_range)))*2 - 1, 
+                                digits = 4)
+  unscaled_params[,1] <- (gpc_params[,1] - min(Re_range))/
+    (max(Re_range)  - min(Re_range))*2 - 1
+  
+  param_reorder <- rep(NA, nrow(param_combo))
+  for(j in 1:nrow(unscaled_params)){
+    for(k in 1:nrow(param_combo)){
+      result <- all.equal(unscaled_params[j,1:3], param_combo[k,], 
+                          check.attributes = F, tolerance = 5.e-4)
+      if(isTRUE(result)) param_reorder[j] <- k
+    }
+  }
+  return(param_reorder)
+}
