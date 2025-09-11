@@ -55,7 +55,9 @@ param_combo_full = compute_All_Collo_PT_Combinations(N,poly_roots);
 % GET SUBSET OF ALL PARAMETER COMBINATIONS FOR LEAST SQUARES
 %------------------------------------------------------------
 N_subset = 1*(N-1)*cap_P;
-param_combo = sample_Parameter_Combinations(N_subset,param_combo_full);
+N_full = length(param_combo_full);
+%param_combo = sample_Parameter_Combinations(N_subset,param_combo_full);
+param_combo = param_combo_full;
 
 
 %------------------------------------------------------------
@@ -78,7 +80,7 @@ alphaMAT = create_Polynomial_Ordering(N,p);
 %------------------------------------------------------------
 % CREATE INFORMATION MATRIX
 %------------------------------------------------------------
-INFO_MAT = create_Information_Matrix(N,p,cap_P,param_combo,alphaMAT);
+INFO_MAT = create_Information_Matrix(N,p,cap_P,param_combo_full,alphaMAT);
 
 [matR,matC]=size(INFO_MAT);
 fprintf('Information Matrix:\n');

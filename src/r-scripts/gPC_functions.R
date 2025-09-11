@@ -13,16 +13,14 @@ Legendre_roots <- function(degree, test_flag = 0){
   #leg_roots <- roots(coeffs)
   #leg_roots <- sort(leg_roots)
   leg_roots <- leg_roots[,1]
+  poly_roots_matlab <- read.csv("./test/gpc_matlab/poly_roots.csv", header = F)
+  root_diffs <- test_matlab_match(leg_roots, poly_roots_matlab, 1e-10)
+  poly_roots <- leg_roots[root_diffs]
   if(test_flag == 1){
-    poly_roots <- leg_roots
-    poly_roots_matlab <- read.csv("./test/gpc_matlab/poly_roots.csv", header = F)
-    root_diffs <- test_matlab_match(poly_roots, poly_roots_matlab, 1e-14)
-    poly_roots <- poly_roots[root_diffs]
     print(all.equal(poly_roots_matlab[,1], poly_roots, tolerance = 1e-10))
-    return(poly_roots)
-  } else{
-    return(leg_roots)
+   
   }
+  return(poly_roots)
 }
 
 Legendre_poly_coeffs <- function(n){
@@ -183,12 +181,12 @@ create_polynomial_ordering <- function(n, p, test_flag){
   return(alpha_new)
 }
 
-create_info_matrix <- function(n, p, cap_p, param_combo_subset, alpha_mat, test_flag){
+create_info_matrix <- function(n, p, cap_p, param_combo, alpha_mat, test_flag){
   # create INFORMATION MATRIX
-  info_mat <- matrix(NA, ncol = cap_p, nrow = nrow(param_combo_subset))
+  info_mat <- matrix(NA, ncol = cap_p, nrow = nrow(param_combo))
   # Loop over all test points
-  for(j in 1:nrow(param_combo_subset)){
-    param_vec <- param_combo_subset[j, ]
+  for(j in 1:nrow(param_combo)){
+    param_vec <- param_combo[j, ]
     # Loop over MULTIVARIABLE LEGENDRE POLY
     for(i in 0:(cap_p - 1)){
       # get Multivariable Legendre indices (i+1 bc i starts at 0)
@@ -199,8 +197,11 @@ create_info_matrix <- function(n, p, cap_p, param_combo_subset, alpha_mat, test_
     }
   }
   
-  if(test_flag == 1){
+  if(test_flag == 1 & nrow(info_mat) == 168){
     info_mat_matlab <- as.matrix(read.csv("./test/gpc_matlab/info_mat.csv", header = F))
+    print(all.equal(info_mat, info_mat_matlab, tolerance = 1e-10, check.attributes = F))
+  } else if(test_flag == 1 & nrow(info_mat) == 343){
+    info_mat_matlab <- as.matrix(read.csv("./test/gpc_matlab/info_mat_full.csv", header = F))
     print(all.equal(info_mat, info_mat_matlab, tolerance = 1e-10, check.attributes = F))
   }
   return(info_mat)
@@ -530,13 +531,26 @@ test_matlab_match <- function(r_values, matlab_values, tolerance,
   r_values <- as.matrix(r_values)
   matlab_values <- as.matrix(matlab_values)
   order_vec <- rep(NA, nrow(r_values))
-  for(i in 1:nrow(r_values)){
-    R_param <- r_values[i,]
-    for(j in 1:nrow(matlab_values)){
-      diff <- abs(R_param - matlab_values[j,])
-      if(is.numeric(print_diff) & i == print_diff) print(diff)
+  for(i in 1:nrow(matlab_values)){
+    matlab_param <- matlab_values[i,]
+    #print(paste("Matlab value:", matlab_param))
+    for(j in 1:nrow(r_values)){
+      diff <- abs(matlab_param - r_values[j,])
+      if(print_diff) print(paste(diff, "order", j))
       if(all(diff < tolerance)) order_vec[i] <- j
     }
   }
   return(order_vec)
+}
+
+transform_values_to_minus1_plus1 <- function(val_orig, a, b){
+  # Setup linear system
+  mat <- matrix(c(a, 1, b, 1), byrow = TRUE, nrow = 2, ncol = 2)
+  rhs <- matrix(c(-1,1), nrow = 2)
+  coeffs <- inv(mat) %*% rhs # Left matrix divide
+  m <- coeffs[1]
+  b <- coeffs[2]
+  
+  val_t <- m*val_orig + b
+  return(val_t)
 }

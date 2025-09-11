@@ -28,7 +28,7 @@ Initial parameters:
  - `test_flag` will test the results against expected values produced by the original code in MATLAB.`TRUE` should be displayed in the output of each code chunk (at least once) if testing is successful. If you wish to intrinsically validate this code against the MATLAB code, use `1` to test, otherwise `0` will turn testing off. 
 
 ```{r initial-parameters}
-test_flag <- 0
+test_flag <- 1
 ```
 
 Set gPC parameters:

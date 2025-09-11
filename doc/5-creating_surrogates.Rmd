@@ -10,6 +10,7 @@ library(pracma)
 library(spacefillr)
 library(ggplot2)
 library(patchwork)
+library(tidyr)
 ```
 
 This document walks through the process of creating performance spaces from each of the three methods (grid sampling, generalized polynomial chaos, and neural network) using the same number of simulations for each method (343 total) across three parameters (Reynolds number, angle of attack, and airfoil camber). The performance metric chosen is the coefficient of lift ($C_L$). The end result is a figure presented in the review paper comparing the resolutions of each method.
@@ -17,6 +18,12 @@ This document walks through the process of creating performance spaces from each
 ## Visualizing results of grid sampling
 
 Actual results of the grid sampling across the three parameters can be plotted in a grid map to create a performance space. 
+
+```{r}
+Re_range <- c(1e6, 1e9)
+aoa_range <- c(0, 15)
+camber_range <- c(0.005, 0.20)
+```
 
 ```{r}
 # Read in the results of the simulations:
@@ -27,7 +34,9 @@ grid_results <- grid_results[order(grid_results$sim), ]
 grid_params <- read.csv("./data/parameters/grid_Params_noLogRe.csv", header = F)
 colnames(grid_params) <- c("Re", "aoa", "camber")
 # Bind the parameters and results together:
-grid_results <- cbind("sim" = grid_results$sim, grid_params, grid_results[,2:4])
+grid_results <- cbind("sim" = grid_results$sim, grid_params, grid_results[, 2:4])
+# Clean up 
+rm(grid_params)
 ```
 
 Here we can plot a 2D performance space of the coefficient of lift ($C_L$) at a constant Reynolds number ($Re = 500500000$). The resulting performance space is low resolution and simulations that failed (`NaN`) are represented as gray tiles. 
@@ -45,8 +54,212 @@ grid_plot
 
 ## Creating a surrogate with the generalized polynomial chaos model
 
-Coming soon!
+This section will create and validate the gPC surrogate based on full simulations in step 3 (`3-xfoil_step_MALTAB.mlx`) based on the points selected in step 1 (`1-Generating-points.Rmd`).
 
+Load custom functions: 
+
+```{r}
+source("./src/r-scripts/gPC_functions.R")
+```
+
+### Set the initial gPC parameters
+
+In this section, we are generating the initial parameters for the gPC model. These are the same steps taken in step 1 (`1-Generating-points.Rmd`) and the gPC primer (`gPC_primer.Rmd`).
+
+The initial parameters are:
+
+ - `n`: the number of parameters in your data set. 
+ - `p`: the order of polynomial you wish to use. Using lower values of `p` may not capture non-linear aspects of the performance space, but will require fewer full simulations. Higher `p` will require more simulations.
+
+```{r set-gpc-parameters}
+test_flag <- 1
+n <- 3
+p <- 6
+cap_p <- nchoosek(n + p, p)
+n_subset <- 343
+```
+
+Find collocation points:
+
+```{r collocation-points}
+poly_roots <- Legendre_roots(p + 1, test_flag)
+```
+
+Find combinations of all collocation points: 
+
+```{r}
+param_combo <- compute_all_collo_pt_combos(n, poly_roots, test_flag)
+```
+
+
+Here, we use multivariable Legendre polynomial ordering to generate the information matrix necessary for the gPC model.
+
+```{r}
+alpha_mat <- create_polynomial_ordering(n, p, test_flag)
+info_mat <- create_info_matrix(n, p, cap_p, param_combo, alpha_mat, test_flag)
+```
+
+### Loading results from full simulations
+
+There will be two sets of full simulations used, one for training and one for testing the gPC model. 
+
+```{r}
+### Training data
+# Loading parameters
+train_gpc_params <- read.csv("./data/parameters/gPC_Params_noLogRe.csv",
+                            header = F)
+
+
+unscaled_params <- matrix(NA, nrow = 343, ncol = 3)
+unscaled_params[,2] <- ((train_gpc_params[,2]/max(aoa_range))*2)-1
+unscaled_params[,3] <-  round(((train_gpc_params[,3] - min(camber_range))/
+                                 (max(camber_range) - min(camber_range)))*2 - 1, 
+                              digits = 4)
+unscaled_params[,1] <- (train_gpc_params[,1] - min(Re_range))/
+  (max(Re_range)  - min(Re_range))*2 - 1
+
+param_reorder <- rep(NA, nrow(param_combo))
+for(j in 1:nrow(unscaled_params)){
+  for(k in 1:nrow(param_combo)){
+    result <- all.equal(unscaled_params[j,1:3], param_combo[k,], 
+                        check.attributes = F, tolerance = 5.e-4)
+    if(isTRUE(result)) param_reorder[j] <- k
+  }
+}
+test_set <- unscaled_params[order(param_reorder),]
+
+# Loading simulation results
+train_gpc_results <- read.csv("./results/gpc_noLogRe_results.csv", header = T)
+# Reorder results based on simulation number
+train_gpc_results <- train_gpc_results[order(train_gpc_results$sim), ]
+# Create results data frame
+training_gpc_data <- cbind("sim" = train_gpc_results$sim, train_gpc_params, 
+                           "output" = train_gpc_results$CL)
+training_gpc_data <- training_gpc_data[order(param_reorder),]
+training_gpc_data$sim <- seq(1,nrow(training_gpc_data))
+test_set <- cbind(test_set, training_gpc_data$output, training_gpc_data$sim)
+# Remove failed simulations
+training_gpc_data <- training_gpc_data[!is.nan(training_gpc_data$output), ]
+training_gpc_data <- as.data.frame(test_set[!is.nan(test_set[,4]),])
+colnames(training_gpc_data) <- c("Re", "aoa", "camber", "output", "sim")
+```
+
+```{r}
+
+#unscaled_params <- unscaled_params[order(unscaled_params[,4]),]
+```
+
+```{r}
+### Testing data
+# Loading parameters
+test_gpc_params <- read.csv("./data/parameters/gPC_Params_LogRe.csv", 
+                           header = F)
+# Loading simulation results
+test_gpc_results <- read.csv("./results/gpc_LogRe_results.csv", header = T)
+# Reorder results based on simulation number
+test_gpc_results <- test_gpc_results[order(test_gpc_results$sim), ]
+# Create results data frame
+testing_gpc_data <- cbind("sim" = test_gpc_results$sim, test_gpc_params, 
+                          "output" = test_gpc_results$CL)
+# Remove failed simulations
+testing_gpc_data <- testing_gpc_data[!is.nan(testing_gpc_data$output),]
+# Clean up
+rm(test_gpc_results, test_gpc_params)
+```
+Loading matlab data: 
+
+```{r}
+gpc_info_matlab <- R.matlab::readMat("./gPC/gPC_Info.mat")
+param_combo_matlab <- gpc_info_matlab$param.combo
+info_mat_matlab <- gpc_info_matlab$INFO.MAT
+alpha_mat_matlab <- gpc_info_matlab$alphaMAT
+gpc_train_data_matlab <- R.matlab::readMat("./gPC/gPC_Training_Dataset.mat")
+train_params_matlab <- gpc_train_data_matlab$Train.PARAMS
+train_results_matlab <- gpc_train_data_matlab$Training.RESULTS
+```
+
+
+Restrict matrices to only successful simulations: 
+
+```{r}
+# R data
+info_mat <- info_mat[training_gpc_data$sim,]
+train_gpc_params <- train_gpc_params[training_gpc_data$sim,]
+# Matlab data
+sims_used <- train_results_matlab[,1]
+info_mat_matlab <- info_mat_matlab[sims_used,]
+
+```
+
+Extract output data, here it is coefficient of lift (`CL`):
+
+```{r }
+output_gpc <- training_gpc_data$output
+output_matlab <- train_results_matlab[,2]
+```
+
+Calculate the pseudo-inverse of the info matrix:
+
+```{r}
+ps_inv <- inv(t(info_mat) %*% info_mat) %*% t(info_mat)
+#temp_mat <- t(info_mat) %*% info_mat
+#S <- svd(temp_mat)
+#sigma <- diag(S$d, cap_p, cap_p)
+```
+
+Get gPC coefficients for the output: 
+
+```{r}
+s_coeffs_CL <- ps_inv %*% output_gpc
+#s_coeffs_CL <- S$v %*% solve(sigma) %*% Conj(t.default(S$u)) %*% t(info_mat) %*% output_gpc
+```
+
+Now, we validate the gPC expansion by recovering the training data set. 
+
+```{r}
+gpc_CL <- rep(NA, nrow(train_gpc_params))
+
+for(j in 1:nrow(train_gpc_params)){
+  Re_test <- train_gpc_params[j,1]
+  aoa_test <- train_gpc_params[j,2]
+  camber_test <- train_gpc_params[j,3]
+  
+  a <- 1e6
+  b <- 1e9
+  val_orig <- Re_test
+  re_val <- transform_values_to_minus1_plus1(val_orig, a, b)
+  
+  a <- 0.0
+  b <- 15.0
+  val_orig <- aoa_test
+  aoa_val <- transform_values_to_minus1_plus1(val_orig, a, b)
+  
+  a <- 0.005
+  b <- 0.20
+  val_orig <- camber_test
+  camber_val <- transform_values_to_minus1_plus1(val_orig, a, b)
+  
+  vec <- c(re_val, aoa_val, camber_val)
+  
+  # Evaluate multidim Legendre Polys for output
+  gpc_CL[j] <- eval_multidim_Legendre_poly(s_coeffs_CL, alpha_mat, vec)
+  
+}
+
+plot_gpc_train <- data.frame("sim" = train_gpc_results$sim, 
+                             "gpc_train" = gpc_CL, 
+                             "gpc_real" = output_gpc)
+plot_gpc_train <- pivot_longer(plot_gpc_train, cols = !"sim")
+```
+
+Plot it: 
+
+```{r}
+ggplot(plot_gpc_train, aes(x = sim, y = value, color = name)) + 
+  geom_point() +
+  ylab("Coefficent of Lift") + 
+  theme_bw()
+```
 
 ## Creating a surrogate with the Neural Network model
 
