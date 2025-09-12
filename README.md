@@ -9,7 +9,7 @@ are listed although other versions may also work.
 
  - R version 4.5.1 (2025-06-13)
  - RStudio Version 2025.05.0+496 
- - R Packages (available on CRAN): `pracma`, `ggplot2`, `patchwork`, `spacefillr`
+ - R Packages (available on CRAN): `pracma`, `ggplot2`, `patchwork`, `spacefillr`, `tidyr`
 
 Note that the repository contains the results from the MATLAB simulations, so MATLAB is not required 
 to generate surrogates or performance-space analyses. However, if you wish to reproduce the simulations 
@@ -33,7 +33,9 @@ Next, run the following scripts in order:
     * R: Open the `./doc/Two-Creating_cambers.Rmd` file in RStudio and run all lines, including the last code chunk which requires that a line be uncommented.  
  3. (MATLAB Only) Open the `./doc/Three-xfoil_step.mlx` file MATLAB and run all sections. Note that this will take several hours to complete. Results are included in the project folder `./results/`, so it is not necessary to complete this step if only using R.
  4. (R Only) Open the `Four-Visualizing_results.Rmd` in `doc/` and run all lines. This will provide information on the raw results of the simulations.
- 5. (R Only) Open the `Five-creating _surrogates.Rmd` in `doc/` and run all lines. This will provide space to generate the gPC and NN surrogates, including training the neural network model. 
+ 5. Creating surrogates from the different methods of constructing performance spaces. 
+    * MATLAB: open and run all lines `./doc/Five_creating_surrogates.mlx` and run all lines. This produces both grid sampling and gPC surrogates, but NN is not yet implemented. 
+    * R: open the `./doc/Five-creating_surrogates.Rmd` and run all lines. This will provide space to generate the gPC and NN surrogates, including training the neural network model, as well as reproducing the figure included in the publication that compares all three methods (grid sampling, gPC, and NN).
  
 __Note:__ each RMD should have the Knit directory to `project` to successfully knit the document and run code. 
 
