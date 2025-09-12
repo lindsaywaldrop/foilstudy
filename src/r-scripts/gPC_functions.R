@@ -575,3 +575,32 @@ reorder_param_data <- function(gpc_params, Re_range, aoa_range, camber_range,
   }
   return(param_reorder)
 }
+
+gPC_expansion <- function(gpc_dat, s_coeffs, alpha_mat, 
+                          Re_range, aoa_range, camber_range) {
+  gpc_params <- gpc_dat[,c("Re", "aoa", "camber")]
+  gpc_exp <- rep(NA, nrow(gpc_params))
+  
+  for(j in 1:nrow(gpc_params)){
+    Re_test <- gpc_params[j,1]
+    aoa_test <- gpc_params[j,2]
+    camber_test <- gpc_params[j,3]
+    
+    val_orig <- Re_test
+    re_val <- transform_values_to_minus1_plus1(val_orig, Re_range[1], Re_range[2])
+    
+    val_orig <- aoa_test
+    aoa_val <- transform_values_to_minus1_plus1(val_orig, aoa_range[1], aoa_range[2])
+    
+    val_orig <- camber_test
+    camber_val <- transform_values_to_minus1_plus1(val_orig, camber_range[1], camber_range[2])
+    
+    vec <- c(re_val, aoa_val, camber_val)
+    
+    # Evaluate multidim Legendre Polys for output
+    gpc_exp[j] <- eval_multidim_Legendre_poly(s_coeffs_CL, alpha_mat, vec)
+    
+  }
+  
+  return(gpc_exp)
+}

@@ -474,13 +474,19 @@ matlab_max <- function(x, a){
   return(output)
 }
 
-save_trained_model_values <- function(trained_model){
+save_trained_model_values <- function(trained_model, min_z, max_z){
   dir.create(paste0("./src/r-scripts/nn-data-", Sys.Date(), "/"), showWarnings = F)
   for(i in names(trained_model)){
     write.table(trained_model[[i]], 
                 file = paste0("./src/r-scripts/nn-data-", Sys.Date(), "/",i,".csv"),
                 row.names = F, col.names = F, sep = ",")
   }
+  write.table(min_z, 
+              file = paste0("./src/r-scripts/nn-data-", Sys.Date(), "/","scaleoutput_min_z",".csv"),
+              row.names = F, col.names = F, sep = ",")
+  write.table(max_z, 
+              file = paste0("./src/r-scripts/nn-data-", Sys.Date(), "/","scaleoutput_max_z",".csv"),
+              row.names = F, col.names = F, sep = ",")
   return(NULL)
 }
 
@@ -490,10 +496,13 @@ load_trained_model <- function(nn_loc){
   wend <- read.csv(paste0(nn_loc,"wend_save.csv"), header = F)
   b1 <- read.csv(paste0(nn_loc,"b1_save.csv"), header = F)
   b2 <- read.csv(paste0(nn_loc,"b2_save.csv"), header = F)
+  bend <- read.csv(paste0(nn_loc,"bend_save.csv"), header = F)
   cost_vec <- read.csv(paste0(nn_loc,"cost_vec.csv"), header = F)
   cost_vec_test <- read.csv(paste0(nn_loc,"cost_vec_test.csv"), header = F)
   cost_vec_train <- read.csv(paste0(nn_loc,"cost_vec_train.csv"), header = F)
   min_cost <- read.csv(paste0(nn_loc,"min_cost.csv"), header = F)
+  min_z <- read.csv(paste0(nn_loc,"scaleoutput_min_z.csv"), header = F)
+  max_z <- read.csv(paste0(nn_loc,"scaleoutput_max_z.csv"), header = F)
   
   completed_training <- list(
     "w1_save" = as.matrix(w1),
@@ -505,7 +514,9 @@ load_trained_model <- function(nn_loc){
     "cost_vec" = as.matrix(cost_vec),
     "cost_vec_test" = as.matrix(cost_vec_test),
     "cost_vec_train" = as.matrix(cost_vec_train),
-    "min_cost" = as.matrix(min_cost))
+    "min_cost" = as.matrix(min_cost),
+    "min_z" = as.matrix(min_z), 
+    "max_z" = as.matrix(max_z))
 
   return(completed_training)
 }

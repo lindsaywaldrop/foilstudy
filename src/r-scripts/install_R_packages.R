@@ -1,6 +1,6 @@
 #### Installs required R packages ####
 
-packages <- c("pracma", "spacefillr", "ggplot2", "patchwork")
+packages <- c("pracma", "spacefillr", "ggplot2", "patchwork", "tidyr")
 
 package.check <- lapply(
   packages,

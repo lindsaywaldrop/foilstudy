@@ -1,7 +1,6 @@
 ---
 title: "Creating Surrogates"
 output:
-  pdf_document: default
   html_notebook: default
 ---
 
@@ -13,17 +12,135 @@ library(patchwork)
 library(tidyr)
 ```
 
-This document walks through the process of creating performance spaces from each of the three methods (grid sampling, generalized polynomial chaos, and neural network) using the same number of simulations for each method (343 total) across three parameters (Reynolds number, angle of attack, and airfoil camber). The performance metric chosen is the coefficient of lift ($C_L$). The end result is a figure presented in the review paper comparing the resolutions of each method.
+This document walks through the process of creating performance spaces from each of the three methods (grid sampling, generalized polynomial chaos, and neural network) using the same number of simulations for each method (343 total) across three parameters (Reynolds number $Re$, angle of attack $aoa$, and airfoil camber $camber$). The performance metric chosen is the coefficient of lift ($C_L$). The end result is a figure presented in the review paper comparing the resolutions of each method.
+
+Note: If you wish to knit this document and are receiving an error about not finding a file, please select "Project directory" under Knit > Knit Directory. 
+
+## Figure from publication
+
+The figure from the review paper consists of each of the below methods plotted together. For convenience, we've included the results from completed surrogates here. To rerun everything, please proceed to each section below.
+
+```{r}
+# Load custom functions
+source("./src/r-scripts/gPC_functions.R")
+source("./src/r-scripts/nn_functions.R")
+
+# Define parameter ranges
+Re_range <- c(1e6, 1e9)
+aoa_range <- c(0, 15)
+camber_range <- c(0.005, 0.20)
+
+#### Grid Sampling Subplot ####
+# Read in the results of the simulations:
+grid_results <- read.csv("./results/grid_noLogRe_results.csv")
+# Reorder the results so that they are in the same order as the parameter file:
+grid_results <- grid_results[order(grid_results$sim), ]
+# Read in the parameter set:
+grid_params <- read.csv("./data/parameters/grid_Params_noLogRe.csv", header = F)
+colnames(grid_params) <- c("Re", "aoa", "camber")
+# Bind the parameters and results together:
+grid_results <- cbind("sim" = grid_results$sim, grid_params, grid_results[, 2:4])
+# Clean up 
+rm(grid_params)
+
+# Construct grid-sampling subplot
+grid_plot <- ggplot(grid_results[grid_results$Re == 500500000,], aes(aoa, camber, fill = CL)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = expression(C[L])) + 
+  xlab("Angle of attack") + ylab("Camber") +
+  ggtitle("Grid Sampling") + 
+  theme_bw()
+
+#### gPC Expansion subplot ####
+
+# Load previously generated gPC coefficients and alpha mat
+s_coeffs_CL <- as.matrix(read.csv("./src/r-scripts/gpc-data-2025-09-11/gPC_coefficients.csv"))
+alpha_mat <- as.matrix(read.csv("./src/r-scripts/gpc-data-2025-09-11/gPC_alphamat.csv"))
+
+# Generate surrogate performance space
+y1_vec <- seq(aoa_range[1], aoa_range[2], length.out = 100)
+z1_vec <- seq(camber_range[1], camber_range[2], length.out = 100)
+mesh_out <- meshgrid(y1_vec, z1_vec)
+y1_mesh <- mesh_out$X
+z1_mesh <- mesh_out$Y
+x1_const <- 500500000
+x1_mesh <- matrix(x1_const, nrow = 100, ncol = 100)
+surrogate_dat <- data.frame("Re" = as.vector(x1_mesh), "aoa" = as.vector(y1_mesh), 
+                            "camber" = as.vector(z1_mesh))
+
+surrogate_dat$CL_surrogate <- gPC_expansion(surrogate_dat, s_coeffs_CL, alpha_mat, 
+                             Re_range, aoa_range, camber_range)
+
+predict_gpc_plot <- ggplot(surrogate_dat, aes(aoa, camber, fill = CL_surrogate)) + 
+  geom_tile() + 
+  scale_fill_viridis_c(name = expression(C[L])) + 
+  xlab("Angle of attack") + ylab("Camber") +
+  ggtitle("gPC Expansion") + 
+  theme_bw() #+ 
+  #theme(legend.position = "bottom")
+
+
+#### Neural Network subplot ####
+trained_model <- load_trained_model("./src/r-scripts/nn-data-2025-08-26/")
+lambda <- 1.7
+x1_const <- 500500000
+x1_const_scaled <- 0.5
+x1_mesh_scaled <- matrix(x1_const_scaled, nrow = 100, ncol = 100)
+y1_vec <- seq(0, 15, length.out = 100)
+z1_vec <- seq(0, 0.2, length.out = 100)
+mesh_out <- meshgrid(line_fxn(y1_vec), line_fxn(z1_vec))
+mesh_out_real <- meshgrid(y1_vec, z1_vec)
+y1_mesh <- mesh_out$X
+z1_mesh <- mesh_out$Y
+
+
+viz_it <- create_2D(x1_mesh_scaled, y1_mesh, z1_mesh, trained_model, true_dat = F)
+
+ztest <- unscale_output_data(as.vector(viz_it$f_prediction), 
+                             as.vector(trained_model$min_z), 
+                             as.vector(trained_model$max_z))
+ztest <- untransform_output_data(ztest, option = "box-cox-y", lambda, 
+                                  dat_mean = mean(ztest))
+
+vizit_predict <- data.frame("x" = as.vector(mesh_out_real$X), "y" = as.vector(mesh_out_real$Y), 
+                            "z" = ztest)
+
+predict_nn_plot <- ggplot(vizit_predict, aes(x, y, fill = z)) + 
+  geom_tile() + 
+  scale_fill_viridis_c(name = expression(C[L])) + 
+  xlab("Angle of attack") + ylab("Camber") +
+  ggtitle("Trained Neural Network") + 
+  theme_bw() #+ 
+  #theme(legend.position = "bottom"
+```
+
+Create and save the figure: 
+
+```{r}
+grid_plot + theme(legend.position = "none") + 
+  predict_gpc_plot + theme(legend.position = "bottom") + 
+  predict_nn_plot + theme(legend.position = "none") + 
+  plot_annotation(tag_levels = "a")
+dir.create("./results/plots/", showWarnings = F)
+ggsave(plot = last_plot(), filename = "./results/plots/surrogate_compare_figure.pdf", 
+       height = 3.0*1.5, width = 6.5*1.5)
+```
+
+The sections below will step you through the creation of each subplot of this figure through grid sampling, generalized polynomial chaos expansion, and training of a neural network from the original simulation data as produced by MATLAB in step 3. 
 
 ## Visualizing results of grid sampling
 
 Actual results of the grid sampling across the three parameters can be plotted in a grid map to create a performance space. 
+
+First, we start by defining the parameter ranges:
 
 ```{r}
 Re_range <- c(1e6, 1e9)
 aoa_range <- c(0, 15)
 camber_range <- c(0.005, 0.20)
 ```
+
+Next, we'll load the parameter range files produced in step 1 and then the results. Since the step 3 MATLAB code performs calculations in parallel, the simulations are out of order in the results file. We must reorder the results before binding them with the parameter data. 
 
 ```{r}
 # Read in the results of the simulations:
@@ -79,20 +196,20 @@ cap_p <- nchoosek(n + p, p)
 n_subset <- 343
 ```
 
-Find collocation points:
+Find collocation points, which are the roots of the Legendre polynomial chosen to by the number of parameters.
 
 ```{r collocation-points}
 poly_roots <- Legendre_roots(p + 1, test_flag)
 ```
 
-Find combinations of all collocation points: 
+Here, we find all the combinations of all collocation points: 
 
 ```{r}
 param_combo <- compute_all_collo_pt_combos(n, poly_roots, test_flag)
 ```
 
 
-Here, we use multivariable Legendre polynomial ordering to generate the information matrix necessary for the gPC model.
+Here, we use multivariable Legendre polynomial ordering to generate the information matrices necessary for the gPC model.
 
 ```{r}
 alpha_mat <- create_polynomial_ordering(n, p, test_flag)
@@ -101,14 +218,21 @@ info_mat <- create_info_matrix(n, p, cap_p, param_combo, alpha_mat, test_flag)
 
 ### Loading results from full simulations
 
-There will be two sets of full simulations used, one for training and one for testing the gPC model. 
+There will be two sets of full simulations used, one for training and one for testing the gPC model. The non-log transformed Reynolds number set will be used for training, and the log-transformed Reynolds number set will be used for testing. The results output used to create the performance space will be coefficient of lift ($C_L$), but any one of the outputs can be swapped out to create a performance space.
+
+Similar to the grid sampling, parameters in the set are run in parallel and recorded out of order. The results need to be reordered based on simulation number before being joined. We then remove simulations that failed to converge.
+
+Furthermore, the polynomial ordering is slightly different between MATLAB and R. Since the MATLAB numbers were originally used, it's necessary to reorder the parameter set itself so that the results match up with the param_combo calculated by R in the section above. If you are producing the parameter sets and then creating surrogates entirely through R, this step is not needed.
 
 ```{r}
 ### Training data
 # Loading parameters
 train_gpc_params <- read.csv("./data/parameters/gPC_Params_noLogRe.csv",
                             header = F)
-# Reorder vector according to previously run parameter set
+# Reorder vector according to previously run parameter set. Matlab outputs 
+# parameter combo differently than R, and the original parameter set was generated
+# with Matlab. This reordering step does not need to happen if parameter sets
+# are generated only with R.
 param_reorder <- reorder_param_data(train_gpc_params, Re_range, aoa_range, 
                                     camber_range, param_combo)
 
@@ -116,20 +240,21 @@ param_reorder <- reorder_param_data(train_gpc_params, Re_range, aoa_range,
 train_gpc_results <- read.csv("./results/gpc_noLogRe_results.csv", header = T)
 # Reorder results based on simulation number (to match csv file)
 train_gpc_results <- train_gpc_results[order(train_gpc_results$sim), ]
-# Create full data frame
-training_gpc_data <- cbind("sim" = train_gpc_results$sim, train_gpc_params, 
+# Create full data frame, output used will be coefficient of lift.
+training_gpc_dat <- cbind("sim" = train_gpc_results$sim, train_gpc_params, 
                            "output" = train_gpc_results$CL)
 # Reorder to match param_combo produced here
-training_gpc_data <- training_gpc_data[order(param_reorder),]
+training_gpc_dat <- training_gpc_dat[order(param_reorder),]
 # Reset simulation numbers
-training_gpc_data$sim <- seq(1,nrow(training_gpc_data))
+training_gpc_dat$sim <- seq(1,nrow(training_gpc_dat))
 # Remove failed simulations
-training_gpc_data <- training_gpc_data[!is.nan(training_gpc_data$output), ]
-colnames(training_gpc_data) <- c( "sim","Re", "aoa", "camber", "output")
+training_gpc_dat <- training_gpc_dat[!is.nan(training_gpc_dat$output), ]
+colnames(training_gpc_dat) <- c( "sim","Re", "aoa", "camber", "output")
 # Clean up
 rm(train_gpc_params, train_gpc_results)
 ```
 
+Now we load the testing data set. The matching between MATLAB and R here is unnecessary, so you'll notice that `reorder_param_data()` is not used here.
 
 ```{r}
 ### Testing data
@@ -141,27 +266,20 @@ test_gpc_results <- read.csv("./results/gpc_LogRe_results.csv", header = T)
 # Reorder results based on simulation number
 test_gpc_results <- test_gpc_results[order(test_gpc_results$sim), ]
 # Create results data frame
-testing_gpc_data <- cbind("sim" = test_gpc_results$sim, test_gpc_params, 
+testing_gpc_dat <- cbind("sim" = test_gpc_results$sim, test_gpc_params, 
                           "output" = test_gpc_results$CL)
+colnames(testing_gpc_dat) <- c("sim", "Re", "aoa", "camber", "output")
 # Remove failed simulations
-testing_gpc_data <- testing_gpc_data[!is.nan(testing_gpc_data$output),]
+testing_gpc_dat <- testing_gpc_dat[!is.nan(testing_gpc_dat$output),]
 # Clean up
 rm(test_gpc_results, test_gpc_params)
 ```
 
 
-Restrict matrices to only successful simulations: 
+Since we removed failed simulations from the results, these must also be removed from the information matrix used to calculate gPC coefficients.
 
 ```{r}
-# R data
-info_mat <- info_mat[training_gpc_data$sim,]
-train_gpc_params <- training_gpc_data[,2:4]
-```
-
-Extract output data, here it is coefficient of lift (`CL`):
-
-```{r }
-output_gpc <- training_gpc_data$output
+info_mat <- info_mat[training_gpc_dat$sim,]
 ```
 
 Calculate the pseudo-inverse of the info matrix:
@@ -173,58 +291,146 @@ ps_inv <- inv(t(info_mat) %*% info_mat) %*% t(info_mat)
 #sigma <- diag(S$d, cap_p, cap_p)
 ```
 
-Get gPC coefficients for the output: 
+Get gPC coefficients for the output (set as $C_L$ above):
 
 ```{r}
-s_coeffs_CL <- ps_inv %*% output_gpc
+s_coeffs_CL <- ps_inv %*% training_gpc_dat$output
 #s_coeffs_CL <- S$v %*% solve(sigma) %*% Conj(t.default(S$u)) %*% t(info_mat) %*% output_gpc
 ```
 
-Now, we validate the gPC expansion by recovering the training data set. 
+Save the coefficients and alpha matrix, these will be necessary for running the values in the gPC expansion (responsible for producing the surrogate performance space).
 
 ```{r}
-gpc_CL <- rep(NA, nrow(train_gpc_params))
-
-for(j in 1:nrow(train_gpc_params)){
-  Re_test <- train_gpc_params[j,1]
-  aoa_test <- train_gpc_params[j,2]
-  camber_test <- train_gpc_params[j,3]
-  
-  a <- 1e6
-  b <- 1e9
-  val_orig <- Re_test
-  re_val <- transform_values_to_minus1_plus1(val_orig, a, b)
-  
-  a <- 0.0
-  b <- 15.0
-  val_orig <- aoa_test
-  aoa_val <- transform_values_to_minus1_plus1(val_orig, a, b)
-  
-  a <- 0.005
-  b <- 0.20
-  val_orig <- camber_test
-  camber_val <- transform_values_to_minus1_plus1(val_orig, a, b)
-  
-  vec <- c(re_val, aoa_val, camber_val)
-  
-  # Evaluate multidim Legendre Polys for output
-  gpc_CL[j] <- eval_multidim_Legendre_poly(s_coeffs_CL, alpha_mat, vec)
-  
-}
-
-plot_gpc_train <- data.frame("sim" = training_gpc_data$sim, 
-                             "gpc_train" = gpc_CL, 
-                             "gpc_real" = output_gpc)
-plot_gpc_train <- pivot_longer(plot_gpc_train, cols = !"sim")
+dir_path <- paste0("./src/r-scripts/gpc-data-", Sys.Date())
+dir.create(dir_path, showWarnings = F)
+write.csv(s_coeffs_CL, paste0(dir_path,"/gPC_coefficients.csv"), 
+          row.names = FALSE)
+write.csv(alpha_mat, paste0(dir_path,"/gPC_alphamat.csv"), row.names = FALSE)
 ```
 
-Plot it: 
+Now, we validate the gPC expansion by recovering the training data set. A data frame with the real and training data, as well as the relative error for each simulation, is also produced.
 
 ```{r}
-ggplot(plot_gpc_train, aes(x = sim, y = value, color = name)) + 
+gpc_CL <- gPC_expansion(training_gpc_dat, s_coeffs_CL, alpha_mat, Re_range, aoa_range, camber_range)
+
+results_gpc_train <- data.frame("sim" = training_gpc_dat$sim, 
+                             "gpc_train" = gpc_CL, 
+                             "gpc_real" = training_gpc_dat$output,
+                             "rel_error" = abs(gpc_CL - training_gpc_dat$output) /
+                               abs(training_gpc_dat$output)
+)
+
+
+plot_gpc_train <- pivot_longer(results_gpc_train[,1:3], cols = !c("sim"))
+
+```
+
+Plot validation results. You'll notice that the training data is sitting on the real simulation data produced by XFOIL. This indicates successful reproduction of the training data set.
+
+```{r}
+p_1_train <- ggplot(plot_gpc_train, aes(x = sim, y = value, color = name)) + 
   geom_point() +
   ylab("Coefficent of Lift") + 
   theme_bw()
+p_2_train <- ggplot(results_gpc_train, aes(rel_error*100)) +
+  geom_histogram() + 
+  ylab("PDF") + 
+  xlab("Percent relative error") +
+  theme_bw()
+p_1_train / p_2_train
+```
+
+Error calculations also indicate very low percent error for the validation.
+
+```{r}
+
+print(paste("Mean relative error for Lift:",
+            signif(mean(results_gpc_train$rel_error)*100, 
+                   digits = 3), "%"))
+print(paste("Max relative error for Lift:",
+            signif(max(results_gpc_train$rel_error)*100, 
+                   digits = 3), "%"))
+```
+
+Next, we'll test the gPC expansion with data from the test set, which is selected from a different distribution as the training set. A results data frame is constructed here as well. 
+
+```{r}
+gpc_CL_test <- gPC_expansion(testing_gpc_dat, s_coeffs_CL, alpha_mat, 
+                             Re_range, aoa_range, camber_range)
+
+results_gpc_test <- data.frame("sim" = testing_gpc_dat$sim, 
+                             "gpc_test" = gpc_CL_test, 
+                             "gpc_real" = testing_gpc_dat$output,
+                             "rel_error" = abs(gpc_CL_test - testing_gpc_dat$output)/
+                               abs(testing_gpc_dat$output)
+)
+
+
+plot_gpc_test <- pivot_longer(results_gpc_test[,1:3], cols = !c("sim"))
+
+```
+
+Again, the majority of test simulation values lay closely to the real values from XFOIL. This indicates successful testing of the gPC surrogate function.
+
+```{r}
+p_1_test <- ggplot(plot_gpc_test, aes(x = sim, y = value, color = name)) + 
+  geom_point() +
+  ylab("Coefficent of Lift") + 
+  theme_bw()
+p_2_test <- ggplot(results_gpc_test, aes(rel_error*100)) +
+  geom_histogram() + 
+  ylab("PDF") + 
+  xlab("Percent relative error") +
+  theme_bw()
+p_1_test / p_2_test
+```
+
+Error calculations indicate low percent error (around 2%) between the surrogate functions and real values. 
+
+```{r}
+
+print(paste("Mean relative error for Lift:",
+            signif(mean(results_gpc_test$rel_error)*100, 
+                   digits = 3), "%"))
+print(paste("Max relative error for Lift:",
+            signif(max(results_gpc_test$rel_error)*100, 
+                   digits = 3), "%"))
+```
+
+After successfully training and testing the gPC surrogate, we can use them to generate the performance space. This is done by creating an even grid of parameter values along two parameters (angle of attack and camber), while holding Reynolds number constant at 50050000 to match the other methods' plots. 
+
+```{r}
+# Load previously generated gPC coefficients and alpha mat
+s_coeffs_CL <- as.matrix(read.csv("./src/r-scripts/gpc-data-2025-09-11/gPC_coefficients.csv"))
+alpha_mat <- as.matrix(read.csv("./src/r-scripts/gpc-data-2025-09-11/gPC_alphamat.csv"))
+
+# Generate surrogate performance space
+y1_vec <- seq(aoa_range[1], aoa_range[2], length.out = 100)
+z1_vec <- seq(camber_range[1], camber_range[2], length.out = 100)
+mesh_out <- meshgrid(y1_vec, z1_vec)
+y1_mesh <- mesh_out$X
+z1_mesh <- mesh_out$Y
+x1_const <- 500500000
+x1_mesh <- matrix(x1_const, nrow = 100, ncol = 100)
+surrogate_dat <- data.frame("Re" = as.vector(x1_mesh), "aoa" = as.vector(y1_mesh), 
+                            "camber" = as.vector(z1_mesh))
+
+surrogate_dat$CL_surrogate <- gPC_expansion(surrogate_dat, s_coeffs_CL, alpha_mat, 
+                             Re_range, aoa_range, camber_range)
+
+```
+
+Plot the resulting surrogate performance space. 
+
+```{r}
+predict_gpc_plot <- ggplot(surrogate_dat, aes(aoa, camber, fill = CL_surrogate)) + 
+  geom_tile() + 
+  scale_fill_viridis_c(name = expression(C[L])) + 
+  xlab("Angle of attack") + ylab("Camber") +
+  ggtitle("gPC Expansion") + 
+  theme_bw() #+ 
+  #theme(legend.position = "bottom")
+predict_gpc_plot
 ```
 
 ## Creating a surrogate with the Neural Network model
@@ -349,7 +555,7 @@ Train the artificial neural network. Save the trained model values as separate c
 ```{r}
 trained_model <- train_artificial_neural_network(training_data_scaled, testing_data_scaled,
                                                  hyper_param_list, testing)
-save_trained_model_values(trained_model)
+save_trained_model_values(trained_model, scale_output2$min_z, scale_output2$max_z)
 ```
 
 ### Intepreting the success of training
@@ -471,15 +677,5 @@ predict_nn_plot +  plot_layout(guides = "collect") & theme(legend.position = "bo
 
 ```
 
-## Figure from publication
 
-The figure from the review paper consists of each of the above methods plotted together. 
-
-```{r}
-grid_plot + theme(legend.position = "none") + predict_nn_plot +
-  plot_annotation(tag_levels = "a")
-dir.create("./results/plots/", showWarnings = F)
-ggsave(plot = last_plot(), filename = "./results/plots/surrogate_compare_figure.pdf", 
-       height = 3.5*1.5, width = 6.5*1.5)
-```
 
