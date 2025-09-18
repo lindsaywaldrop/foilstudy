@@ -77,4 +77,4 @@ Please source the `calculate_cambers.R` script located in the `./src` folder. Th
 
 ### Next steps...
 
-Now that all the airfoils have been created, you can move on to running simulations in MATLAB XFOIL! 
+Now that all the airfoils have been created, you can move on to running simulations in MATLAB XFOIL! In MATLAB, access the `Three_xfoil_step_MATLAB.mlx` file and run the code. Since XFOIL is not implemented in R, we include results from simulations run in XFOIL as part of this repository. If you would like to skip this step, you can proceed to `Four_Visualizing_results.Rmd`. 

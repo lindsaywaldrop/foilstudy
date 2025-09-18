@@ -5,7 +5,6 @@ output: pdf_document
 ```{r setup, include=FALSE}
 library(ggplot2)
 library(patchwork)
-
 ```
 
 # Visualizing Results from the Original Reynolds-number range
@@ -524,3 +523,8 @@ $CL/CD$ results:
 (ggplot(complete_nn_log, aes(alpha, CLCD)) + 
   geom_point() + theme_bw()) 
 ```
+
+## Next steps... 
+
+The next step is to open the document `Five_creating_surrogates.Rmd` in R and run. 
+

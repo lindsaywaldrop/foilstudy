@@ -193,5 +193,5 @@ write.table(signif(nolog_nn, digits = 5), file = paste0("./data/parameters/NN_Pa
 
 ## Next Step... 
 
-The next step is to run the `Creating_cambers.Rmd` in RStudio to generate the airfoil files. 
+The next step is to run the `Two_Creating_cambers.Rmd` in RStudio to generate the airfoil files. 
 

@@ -23,6 +23,8 @@ Download and install by adding the installation folder to your MATLAB path.
 
 Please follow the steps below to reproduce the analyses. Note that several steps can be performed with either R or MATLAB, depending on your preference. Start by cloning the github repository or download the release and unarchive the code. If running in RStudio, open the `foilstudy.Rproj` in RStudio. You may run the `install_R_packages.R` script in `./src/r-scripts/` folder to install the required R packages. 
 
+__Note:__ each RMD should have the Knit directory to `project` to successfully knit the document and run code. 
+
 Next, run the following scripts in order: 
 
  1. Generate the parameter spaces using grid sampling, gPC sampling, and neural-network sampling.
@@ -36,8 +38,6 @@ Next, run the following scripts in order:
  5. Creating surrogates from the different methods of constructing performance spaces. 
     * MATLAB: open and run all lines `./doc/Five_creating_surrogates.mlx` and run all lines. This produces both grid sampling and gPC surrogates, but NN is not yet implemented. 
     * R: open the `./doc/Five-creating_surrogates.Rmd` and run all lines. This will provide space to generate the gPC and NN surrogates, including training the neural network model, as well as reproducing the figure included in the publication that compares all three methods (grid sampling, gPC, and NN).
- 
-__Note:__ each RMD should have the Knit directory to `project` to successfully knit the document and run code. 
 
 Rerunning the code will not reproduce the results exactly because of some randomness in the process of point generation, XFOIL functions, and training the neural network. These small differences will not affect the overall information presented in the final figure.
  
