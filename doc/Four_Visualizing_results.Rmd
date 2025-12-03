@@ -256,8 +256,7 @@ p1_nn_log + p2_nn_log + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 ```
 
-
-Hey!!!!!
+$CL/CD$ results:
 
 ```{r nn-log-plots-bad, echo=FALSE,warning=FALSE}
 (ggplot(complete_nn_log, aes(camber, CLCD)) + 
